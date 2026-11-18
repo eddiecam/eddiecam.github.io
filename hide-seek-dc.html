@@ -1,0 +1,1987 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#151a30">
+<meta name="description" content="Map tool for Jet Lag: The Game's Hide + Seek home game in Washington, DC — hiding zones, questions and live elimination.">
+<title>Hide + Seek DC · Jet Lag home-game map</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23151a30'/%3E%3Ccircle cx='16' cy='16' r='8' fill='none' stroke='%23ffd23f' stroke-width='3'/%3E%3Ccircle cx='16' cy='16' r='2.5' fill='%23ffd23f'/%3E%3C/svg%3E">
+<style>:root{
+  --ink:#151a30;--ink2:#4a5170;--mute:#8b91a8;--line:#e5e7ef;--line2:#d5d9e6;--bg:#f5f6fa;--card:#fff;--brand:#ffd23f;
+  --match:#2f6fde;--measure:#12936a;--thermo:#e8590c;--radar:#c2255c;--custom:#6741d9;--ok:#12936a;--bad:#c92a2a;
+  --r:12px;--shadow:0 8px 28px rgba(21,26,48,.14),0 1px 3px rgba(21,26,48,.08);
+  --safe-b:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;font:14px/1.42 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:var(--bg);-webkit-tap-highlight-color:transparent}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+#app{position:fixed;inset:0;display:flex}
+#panel{width:400px;flex:none;display:flex;flex-direction:column;background:var(--card);border-right:1px solid var(--line);z-index:1000;min-height:0;position:relative}
+#mapwrap{position:relative;flex:1;min-width:0}
+#map{position:absolute;inset:0;background:#e8eaf0}
+.hs-canvas{position:absolute;left:0;top:0;pointer-events:none}
+#map.picking,#map.picking .leaflet-interactive{cursor:crosshair!important}
+
+/* header */
+.phead{display:flex;align-items:center;gap:10px;padding:14px 16px 10px}
+.logo{width:38px;height:38px;border-radius:10px;background:var(--ink);display:grid;place-items:center;flex:none}
+.brand b{display:block;font-size:16px;letter-spacing:-.01em}
+.brand small{color:var(--mute);font-size:12px}
+.phead .sp{flex:1}
+.icon-btn{border:1px solid var(--line);background:#fff;border-radius:10px;width:36px;height:36px;display:grid;place-items:center;font-size:16px}
+.icon-btn:hover{background:var(--bg)}
+
+.summary{margin:0 16px 10px;padding:12px 14px;border-radius:var(--r);background:var(--ink);color:#fff;display:flex;align-items:center;gap:14px}
+.summary .big{font-size:26px;font-weight:750;letter-spacing:-.02em;line-height:1}
+.summary .lbl{font-size:11px;opacity:.7;text-transform:uppercase;letter-spacing:.06em;margin-top:3px}
+.summary .bar{flex:1;height:6px;border-radius:3px;background:rgba(255,255,255,.16);overflow:hidden;align-self:center}
+.summary .bar i{display:block;height:100%;background:var(--brand);border-radius:3px;transition:width .3s}
+.summary .tag{font-size:10px;background:var(--brand);color:var(--ink);border-radius:4px;padding:1px 5px;font-weight:700;margin-left:6px;vertical-align:middle}
+
+.tabs{display:flex;gap:2px;padding:0 12px;border-bottom:1px solid var(--line)}
+.tabs button{flex:1;white-space:nowrap;border:0;background:none;padding:10px 4px 9px;font-weight:600;color:var(--mute);border-bottom:2px solid transparent;font-size:13px}
+.tabs button.on{color:var(--ink);border-bottom-color:var(--ink)}
+.tabs .n{display:inline-block;min-width:16px;padding:0 4px;border-radius:8px;background:var(--bg);color:var(--ink2);font-size:11px;margin-left:3px}
+.tabbody{flex:1;overflow:auto;padding:14px 16px 24px;-webkit-overflow-scrolling:touch;min-height:0}
+.tabbody section[hidden]{display:none}
+h3{font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--mute);margin:18px 0 8px;font-weight:700}
+h3:first-child{margin-top:0}
+.muted{color:var(--mute)} .small{font-size:12px}
+p{margin:6px 0}
+
+/* ask cards */
+.addgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.qadd{border:1px solid var(--line);background:#fff;border-radius:var(--r);padding:11px 12px;text-align:left;display:flex;flex-direction:column;gap:3px;position:relative;overflow:hidden;transition:transform .08s,box-shadow .15s}
+.qadd:hover{box-shadow:var(--shadow)} .qadd:active{transform:scale(.98)}
+.qadd::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--c)}
+.qadd b{font-size:14px;display:flex;align-items:center;gap:6px}
+.qadd b .ic{width:22px;height:22px;border-radius:6px;background:var(--c);color:#fff;display:grid;place-items:center;font-size:12px}
+.qadd span{font-size:11.5px;color:var(--ink2);line-height:1.3}
+
+/* question list */
+.qitem{border:1px solid var(--line);border-radius:var(--r);padding:10px 10px 10px 14px;margin-bottom:8px;position:relative;background:#fff}
+.qitem::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:4px;border-radius:0 3px 3px 0;background:var(--c)}
+.qitem.off{opacity:.55}
+.qitem .top{display:flex;align-items:center;gap:8px}
+.qitem .num{width:22px;height:22px;border-radius:50%;background:var(--c);color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center;flex:none}
+.qitem .t{font-weight:650;flex:1;min-width:0}
+.qitem .sub{font-size:12px;color:var(--ink2);margin:4px 0 0 30px}
+.qitem .acts{display:flex;gap:4px;margin:8px 0 0 30px;flex-wrap:wrap}
+.ans{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:var(--bg);white-space:nowrap}
+.ans.yes{background:#e6f7ef;color:#0b6e4f}.ans.no{background:#fdecec;color:#a61e1e}
+.badge{font-size:11px;padding:1px 7px;border-radius:10px;background:#fff4db;color:#8a5a00}
+.badge.err{background:#fdecec;color:#a61e1e}
+
+.btn{border:1px solid var(--line2);background:#fff;border-radius:9px;padding:8px 12px;font-weight:600;font-size:13px;display:inline-flex;align-items:center;gap:6px;justify-content:center}
+.btn:hover{background:var(--bg)}
+.btn.sm{padding:5px 9px;font-size:12px;border-radius:8px}
+.btn.pri{background:var(--ink);border-color:var(--ink);color:#fff}
+.btn.pri:hover{background:#2a3150}
+.btn.danger{color:var(--bad)}
+.btn[disabled]{opacity:.45;pointer-events:none}
+.btnrow{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,input[type=number],input[type=text],input[type=search],textarea{border:1px solid var(--line2);border-radius:9px;padding:7px 9px;background:#fff;max-width:100%}
+select.sm{padding:4px 6px;font-size:12px;border-radius:8px}
+textarea{width:100%;min-height:90px;font:12px/1.4 ui-monospace,Menlo,monospace}
+
+/* editor */
+.editor{position:absolute;inset:0;background:#fff;display:flex;flex-direction:column;z-index:5}
+.editor[hidden]{display:none}
+.edhead{padding:14px 16px 12px;border-bottom:1px solid var(--line);position:relative}
+.edhead::before{content:"";position:absolute;left:0;right:0;top:0;height:4px;background:var(--c)}
+.edhead .kind{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--c)}
+.edhead .ask{font-size:16px;font-weight:650;margin-top:2px;line-height:1.3}
+.edbody{flex:1;overflow:auto;padding:14px 16px}
+.edfoot{border-top:1px solid var(--line);padding:10px 16px calc(10px + var(--safe-b));display:flex;gap:8px}
+.edfoot .sp{flex:1}
+.field{margin-bottom:16px}
+.field>label{display:block;font-size:12px;font-weight:700;color:var(--ink2);margin-bottom:6px}
+.loc{border:1px dashed var(--line2);border-radius:10px;padding:8px 10px}
+.loc.set{border-style:solid;background:var(--bg)}
+.locval{font-weight:600;margin-bottom:6px;font-size:13px}
+.locval small{display:block;font-weight:400;color:var(--mute)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line2);background:#fff;border-radius:20px;padding:6px 12px;font-weight:600;font-size:13px}
+.chip.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.seg{display:flex;border:1px solid var(--line2);border-radius:11px;overflow:hidden}
+.seg button{flex:1;border:0;background:#fff;padding:10px 8px;font-weight:700}
+.seg button+button{border-left:1px solid var(--line2)}
+.seg button.on.y{background:#12936a;color:#fff}.seg button.on.n{background:#c92a2a;color:#fff}
+.info{border-radius:10px;background:var(--bg);padding:10px 12px;font-size:13px;margin-bottom:14px}
+.info.warn{background:#fff4db}
+.preview{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.preview div{border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.preview b{font-size:18px;display:block}
+.preview span{font-size:11.5px;color:var(--ink2)}
+.row{display:flex;gap:8px;align-items:center;margin-top:8px}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* zones */
+.linechips{display:flex;flex-wrap:wrap;gap:6px}
+.lchip{border:2px solid var(--lc);border-radius:20px;padding:5px 11px 5px 8px;background:#fff;font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px}
+.lchip i{width:12px;height:12px;border-radius:50%;background:var(--lc)}
+.lchip.off{border-color:var(--line2);color:var(--mute);text-decoration:line-through;background:var(--bg)}
+.lchip.off i{opacity:.35}
+.strow{display:flex;align-items:center;gap:8px;padding:7px 2px;border-bottom:1px solid var(--line)}
+.strow .nm{flex:1;min-width:0;font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.strow.dead .nm{color:var(--mute);text-decoration:line-through}
+.dots{display:inline-flex;gap:2px}.dots i{width:8px;height:8px;border-radius:50%;display:inline-block}
+.pbar{width:54px;height:6px;border-radius:3px;background:var(--line);overflow:hidden;flex:none}.pbar i{display:block;height:100%;background:var(--ok)}
+.pct{width:34px;text-align:right;font-size:11px;color:var(--ink2);font-variant-numeric:tabular-nums}
+
+/* layers */
+.lrow{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)}
+.lrow label{flex:1;display:flex;align-items:center;gap:8px;cursor:pointer;min-width:0}
+.lrow .sw{width:18px;height:18px;border-radius:5px;flex:none;display:grid;place-items:center;font-size:10px;color:#fff}
+.lrow .st{font-size:11px;color:var(--mute);white-space:nowrap}
+.toggle{appearance:none;width:34px;height:20px;border-radius:10px;background:var(--line2);position:relative;flex:none;cursor:pointer;transition:background .15s;margin:0}
+.toggle::after{content:"";position:absolute;left:2px;top:2px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:left .15s}
+.toggle:checked{background:var(--ink)}.toggle:checked::after{left:16px}
+.radios label{display:flex;gap:8px;align-items:center;padding:5px 0;cursor:pointer}
+
+/* custom shapes */
+.citem{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;margin-bottom:6px}
+.citem .t{flex:1;font-weight:600;font-size:13px}
+
+/* map chrome */
+#mapchip{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:800;background:var(--ink);color:#fff;border-radius:20px;padding:6px 14px;font-weight:650;font-size:13px;box-shadow:var(--shadow);white-space:nowrap;display:none;pointer-events:none}
+#mapchip.busy{display:block}
+#pickbar{position:absolute;left:12px;right:60px;top:12px;z-index:900;background:#fff;border-radius:14px;box-shadow:var(--shadow);padding:10px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+#pickbar[hidden]{display:none}
+#pickbar .msg{flex:1;min-width:160px;font-size:13px}
+#pickbar .msg b{display:block;font-size:14px}
+.mapbtns{position:absolute;right:10px;top:96px;z-index:800;display:flex;flex-direction:column;gap:6px}
+.mapbtns button{width:34px;height:34px;border-radius:8px;border:0;background:#fff;box-shadow:0 1px 5px rgba(0,0,0,.25);font-size:16px;display:grid;place-items:center}
+.leaflet-control-zoom a{width:34px!important;height:34px!important;line-height:34px!important}
+#tip{position:absolute;z-index:950;pointer-events:none;background:rgba(21,26,48,.92);color:#fff;padding:4px 8px;border-radius:6px;font-size:12px;white-space:nowrap;display:none;transform:translate(12px,-50%)}
+.legend{position:absolute;left:12px;bottom:22px;z-index:800;background:rgba(255,255,255,.94);border-radius:10px;box-shadow:var(--shadow);padding:7px 10px;font-size:11.5px;display:flex;gap:12px;align-items:center}
+.legend i{display:inline-block;width:14px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.hs-pin{background:none;border:0}
+.hs-pin div{width:26px;height:26px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:var(--c);border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35)}
+.hs-pin span{position:absolute;left:0;top:6px;width:26px;text-align:center;color:#fff;font-weight:800;font-size:11px}
+.leaflet-popup-content{margin:12px 14px;font-size:13px}
+.pop b{font-size:14px}.pop .btnrow{margin-top:8px}
+
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:10px 16px;border-radius:12px;z-index:3000;opacity:0;transition:.25s;pointer-events:none;max-width:90vw;font-size:13px;box-shadow:var(--shadow)}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#modal{position:fixed;inset:0;background:rgba(21,26,48,.45);z-index:2500;display:grid;place-items:center;padding:16px}
+#modal[hidden]{display:none}
+#modal .box{background:#fff;border-radius:16px;max-width:440px;width:100%;padding:18px;box-shadow:var(--shadow)}
+#modal h2{margin:0 0 8px;font-size:17px}
+#modal .btnrow{justify-content:flex-end;margin-top:14px}
+.help li{margin-bottom:6px}
+kbd{font:11px ui-monospace,monospace;background:var(--bg);border:1px solid var(--line2);border-radius:4px;padding:0 4px}
+.handle{display:none}
+.mobile-only{display:none}
+
+@media (max-width:820px){
+  #app{display:block}
+  #mapwrap{position:absolute;inset:0}
+  #panel{position:absolute;left:0;right:0;bottom:0;width:auto;height:48%;border-right:0;border-radius:18px 18px 0 0;box-shadow:0 -10px 30px rgba(21,26,48,.18);transition:height .25s ease}
+  #panel.min{height:150px} #panel.max{height:calc(100% - 56px)}
+  .handle{display:block;width:44px;height:5px;border-radius:3px;background:var(--line2);margin:8px auto 0;border:0;padding:0}
+  .handlehit{position:absolute;left:0;right:0;top:0;height:22px;border:0;background:none}
+  .phead{padding:8px 14px 8px}
+  .phead .brand small{display:none}
+  .logo{width:32px;height:32px}
+  .summary{margin:0 14px 8px;padding:9px 12px}
+  .summary .big{font-size:21px}
+  .mobile-only{display:grid}
+  #mapchip{display:block}
+  .legend{display:none}
+  .mapbtns{top:96px}
+  #pickbar{right:56px}
+  .tabbody{padding:12px 14px calc(20px + var(--safe-b))}
+}
+</style>
+<script>
+/* Leaflet loader with CDN fallbacks (tests may pre-define window.L) */
+window.__LEAFLET_SRC = [
+  ['https://unpkg.com/leaflet@1.9.4/dist/leaflet.js', 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'],
+  ['https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js', 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css'],
+  ['https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js', 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css']
+];
+window.__loadLeaflet = function (cb, i) {
+  i = i || 0; if (window.L) return cb();
+  var s = window.__LEAFLET_SRC[i]; if (!s) { document.body.insertAdjacentHTML('afterbegin', '<div style="position:fixed;inset:0;display:grid;place-items:center;z-index:9999;background:#fff;font:15px system-ui;padding:20px;text-align:center">Could not load the map library. Check your internet connection and reload.</div>'); return; }
+  var css = document.createElement('link'); css.rel = 'stylesheet'; css.href = s[1]; document.head.appendChild(css);
+  var js = document.createElement('script'); js.src = s[0]; js.onload = cb; js.onerror = function () { css.remove(); window.__loadLeaflet(cb, i + 1); };
+  document.head.appendChild(js);
+};
+</script>
+</head>
+<body>
+<div id="app">
+  <aside id="panel">
+    <button class="handlehit mobile-only" data-act="sheet" aria-label="Resize panel"><span class="handle"></span></button>
+    <header class="phead">
+      <div class="logo" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 32 32"><circle cx="16" cy="16" r="10" fill="none" stroke="#ffd23f" stroke-width="3.2"/><circle cx="16" cy="16" r="3.2" fill="#ffd23f"/><path d="M16 1v6M16 25v6M1 16h6M25 16h6" stroke="#ffd23f" stroke-width="2.6" stroke-linecap="round"/></svg></div>
+      <div class="brand"><b>Hide + Seek DC</b><small>Jet Lag home-game map · Washington Metro</small></div>
+      <div class="sp"></div>
+      <button class="icon-btn mobile-only" data-act="sheet" aria-label="Expand or collapse panel" id="sheetBtn">▴</button>
+    </header>
+    <div class="summary" id="summary"></div>
+    <nav class="tabs" role="tablist">
+      <button data-act="tab" data-tab="q" class="on">Questions</button>
+      <button data-act="tab" data-tab="z">Zones</button>
+      <button data-act="tab" data-tab="l">Layers</button>
+      <button data-act="tab" data-tab="d">Draw</button>
+      <button data-act="tab" data-tab="g">Game</button>
+    </nav>
+    <div class="tabbody" id="tabbody">
+      <section data-pane="q" id="paneQ"></section>
+      <section data-pane="z" id="paneZ" hidden></section>
+      <section data-pane="l" id="paneL" hidden></section>
+      <section data-pane="d" id="paneD" hidden></section>
+      <section data-pane="g" id="paneG" hidden></section>
+    </div>
+    <div class="editor" id="editor" hidden></div>
+  </aside>
+  <main id="mapwrap">
+    <div id="map"></div>
+    <div id="mapchip"></div>
+    <div id="pickbar" hidden></div>
+    <div class="mapbtns">
+      <button data-act="fit" title="Zoom to remaining zones" aria-label="Zoom to remaining zones">⤢</button>
+      <button data-act="locate" title="Show my location" aria-label="Show my location">◎</button>
+    </div>
+    <div class="legend"><span><i style="background:rgba(21,26,48,.6)"></i>Ruled out</span><span><i style="background:rgba(21,26,48,.25)"></i>Outside every zone</span><span><i style="background:#fff;border:2px solid #151a30"></i>Still possible</span></div>
+    <div id="tip"></div>
+  </main>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+<div id="modal" hidden></div>
+<script>'use strict';
+/* =====================================================================
+   Hide + Seek DC — data + geometry engine (no DOM access in this file)
+   ===================================================================== */
+
+/* ------------------------------ DATA ------------------------------ */
+const LINES = {
+  RD: { n: 'Red', c: '#BF0D3E' }, OR: { n: 'Orange', c: '#ED8B00' }, SV: { n: 'Silver', c: '#919D9D' },
+  BL: { n: 'Blue', c: '#009CDE' }, YL: { n: 'Yellow', c: '#FFD100' }, GR: { n: 'Green', c: '#00B140' }
+};
+const LINE_ORDER = ['RD', 'OR', 'SV', 'BL', 'YL', 'GR'];
+
+// WMATA station centroids (WMATA Rail API; post-2022 stations from Wikipedia).
+const ST_RAW = `A01|Metro Center|38.898303|-77.028099
+A02|Farragut North|38.903192|-77.039766
+A03|Dupont Circle|38.909499|-77.04362
+A04|Woodley Park-Zoo/Adams Morgan|38.924999|-77.052648
+A05|Cleveland Park|38.934703|-77.058226
+A06|Van Ness-UDC|38.94362|-77.063511
+A07|Tenleytown-AU|38.947808|-77.079615
+A08|Friendship Heights|38.960744|-77.085969
+A09|Bethesda|38.984282|-77.094431
+A10|Medical Center|38.999947|-77.097253
+A11|Grosvenor-Strathmore|39.029158|-77.10415
+A12|North Bethesda|39.048043|-77.113131
+A13|Twinbrook|39.062359|-77.121113
+A14|Rockville|39.084215|-77.146424
+A15|Shady Grove|39.119819|-77.164921
+B01|Gallery Place-Chinatown|38.89834|-77.021851
+B02|Judiciary Square|38.896084|-77.016643
+B03|Union Station|38.897723|-77.006745
+B04|Rhode Island Ave-Brentwood|38.920741|-76.995984
+B05|Brookland-CUA|38.933234|-76.994544
+B06|Fort Totten|38.951777|-77.002174
+B07|Takoma|38.975532|-77.017834
+B08|Silver Spring|38.993841|-77.031321
+B09|Forest Glen|39.015413|-77.042953
+B10|Wheaton|39.038558|-77.051098
+B11|Glenmont|39.061713|-77.05341
+B35|NoMa-Gallaudet U|38.907407|-77.002961
+C02|McPherson Square|38.901316|-77.033652
+C03|Farragut West|38.901311|-77.03981
+C04|Foggy Bottom-GWU|38.900599|-77.050273
+C05|Rosslyn|38.896595|-77.07146
+C06|Arlington Cemetery|38.884574|-77.063108
+C07|Pentagon|38.869349|-77.054013
+C08|Pentagon City|38.863045|-77.059507
+C09|Crystal City|38.85779|-77.050589
+C10|Ronald Reagan Washington National Airport|38.852985|-77.043805
+C11|Potomac Yard|38.83335|-77.04635
+C12|Braddock Road|38.814009|-77.053763
+C13|King St-Old Town|38.806474|-77.061115
+C14|Eisenhower Avenue|38.800313|-77.071173
+C15|Huntington|38.793841|-77.075301
+D01|Federal Triangle|38.893757|-77.028218
+D02|Smithsonian|38.888022|-77.028232
+D03|L'Enfant Plaza|38.884775|-77.021964
+D04|Federal Center SW|38.884958|-77.01586
+D05|Capitol South|38.884968|-77.005137
+D06|Eastern Market|38.884124|-76.995334
+D07|Potomac Ave|38.880841|-76.985721
+D08|Stadium-Armory|38.88594|-76.977485
+D09|Minnesota Ave|38.898284|-76.948042
+D10|Deanwood|38.907734|-76.936177
+D11|Cheverly|38.91652|-76.915427
+D12|Landover|38.934411|-76.890988
+D13|New Carrollton|38.947674|-76.872144
+E01|Mt Vernon Sq/7th St-Convention Center|38.905604|-77.022256
+E02|Shaw-Howard U|38.912919|-77.022194
+E03|U Street/African-Amer Civil War Memorial/Cardozo|38.916489|-77.028938
+E04|Columbia Heights|38.928672|-77.032775
+E05|Georgia Ave-Petworth|38.936077|-77.024728
+E07|West Hyattsville|38.954931|-76.969881
+E08|Hyattsville Crossing|38.965276|-76.956182
+E09|College Park-U of Md|38.978523|-76.928432
+E10|Greenbelt|39.011036|-76.911362
+F02|Archives-Navy Memorial-Penn Quarter|38.893893|-77.021902
+F04|Waterfront|38.876221|-77.017491
+F05|Navy Yard-Ballpark|38.876588|-77.005086
+F06|Anacostia|38.862072|-76.995648
+F07|Congress Heights|38.845334|-76.98817
+F08|Southern Avenue|38.840974|-76.97536
+F09|Naylor Road|38.851187|-76.956565
+F10|Suitland|38.843891|-76.932022
+F11|Branch Ave|38.826995|-76.912134
+G01|Benning Road|38.890488|-76.938291
+G02|Capitol Heights|38.889757|-76.913382
+G03|Addison Road-Seat Pleasant|38.886713|-76.893592
+G04|Morgan Boulevard|38.893583|-76.868472
+G05|Downtown Largo|38.900485|-76.84443
+J02|Van Dorn Street|38.799193|-77.129407
+J03|Franconia-Springfield|38.766129|-77.168797
+K01|Court House|38.891499|-77.08391
+K02|Clarendon|38.886373|-77.096963
+K03|Virginia Square-GMU|38.88331|-77.104267
+K04|Ballston-MU|38.882071|-77.111845
+K05|East Falls Church|38.885841|-77.157177
+K06|West Falls Church|38.90067|-77.189394
+K07|Dunn Loring-Merrifield|38.883015|-77.228939
+K08|Vienna/Fairfax-GMU|38.877693|-77.271562
+N01|McLean|38.924478|-77.210167
+N02|Tysons|38.920056|-77.223314
+N03|Greensboro|38.919749|-77.235192
+N04|Spring Hill|38.929273|-77.241988
+N06|Wiehle-Reston East|38.947753|-77.340179
+N07|Reston Town Center|38.95278|-77.36028
+N08|Herndon|38.9528|-77.3852
+N09|Innovation Center|38.96083|-77.41556
+N10|Washington Dulles International Airport|38.95583|-77.44778
+N11|Loudoun Gateway|38.99278|-77.46167
+N12|Ashburn|39.0046|-77.4909`;
+
+// Station order along each line (shared platforms use one code: Metro Center A01, Gallery Pl B01, L'Enfant D03, Fort Totten B06)
+const LINE_SEQ = {
+  RD: 'A15 A14 A13 A12 A11 A10 A09 A08 A07 A06 A05 A04 A03 A02 A01 B01 B02 B03 B35 B04 B05 B06 B07 B08 B09 B10 B11',
+  OR: 'K08 K07 K06 K05 K04 K03 K02 K01 C05 C04 C03 C02 A01 D01 D02 D03 D04 D05 D06 D07 D08 D09 D10 D11 D12 D13',
+  SV: 'N12 N11 N10 N09 N08 N07 N06 N04 N03 N02 N01 K05 K04 K03 K02 K01 C05 C04 C03 C02 A01 D01 D02 D03 D04 D05 D06 D07 D08 G01 G02 G03 G04 G05',
+  BL: 'J03 J02 C13 C12 C11 C10 C09 C08 C07 C06 C05 C04 C03 C02 A01 D01 D02 D03 D04 D05 D06 D07 D08 G01 G02 G03 G04 G05',
+  YL: 'C15 C14 C13 C12 C11 C10 C09 C08 C07 D03 F02 B01 E01',
+  GR: 'F11 F10 F09 F08 F07 F06 F05 F04 D03 F02 B01 E01 E02 E03 E04 E05 B06 E07 E08 E09 E10'
+};
+
+const AIRPORTS = [
+  ['DCA', 'Ronald Reagan Washington National Airport (DCA)', 38.8512, -77.0402],
+  ['IAD', 'Washington Dulles International Airport (IAD)', 38.9531, -77.4565],
+  ['BWI', 'Baltimore/Washington International Airport (BWI)', 39.1754, -76.6683]
+];
+
+// District of Columbia boundary: straight 1791 survey lines on land (boundary-stone corners) and the
+// Virginia shore of the Potomac (approximate, ~50–150 m) between Little Falls and Jones Point.
+const DC_N = [38.995548, -77.041018], DC_E = [38.892927, -76.909388], DC_JONES = [38.790485, -77.040622], DC_J = [38.93625, -77.1170];
+const VA_SHORE = [ // downstream, from the NW boundary line at Little Falls to Jones Point
+  DC_J, [38.9300, -77.1172], [38.9255, -77.1120], [38.9200, -77.1050], [38.9150, -77.0985], [38.9100, -77.0920],
+  [38.9060, -77.0845], [38.9030, -77.0770], [38.9010, -77.0715], [38.8985, -77.0695], [38.8950, -77.0685],
+  [38.8905, -77.0672], [38.8870, -77.0640], [38.8840, -77.0610], [38.8800, -77.0590], [38.8760, -77.0565],
+  [38.8725, -77.0530], [38.8705, -77.0490], [38.8690, -77.0455], [38.8650, -77.0430], [38.8600, -77.0395],
+  [38.8555, -77.0365], [38.8500, -77.0350], [38.8445, -77.0360], [38.8405, -77.0385], [38.8380, -77.0420],
+  [38.8300, -77.0400], [38.8200, -77.0395], [38.8100, -77.0390], [38.8000, -77.0390], [38.7930, -77.0395], DC_JONES
+];
+const VA_UP = [ // Maryland/Virginia line (Potomac VA shore) upstream of DC, listed downstream
+  [39.3250, -77.7200], [39.2700, -77.5450], [39.2350, -77.5100], [39.1950, -77.4750], [39.1300, -77.4800],
+  [39.0950, -77.4600], [39.0780, -77.3850], [39.0650, -77.3400], [39.0450, -77.3050], [39.0220, -77.2800],
+  [39.0030, -77.2560], [38.9960, -77.2480], [38.9850, -77.2300], [38.9750, -77.1950], [38.9700, -77.1650],
+  [38.9600, -77.1460], [38.9480, -77.1320], [38.9400, -77.1220]
+];
+const VA_DOWN = [ // downstream of Jones Point
+  [38.7850, -77.0440], [38.7700, -77.0450], [38.7550, -77.0450], [38.7350, -77.0560], [38.7150, -77.0800],
+  [38.7000, -77.1000], [38.6900, -77.1250], [38.6600, -77.1800], [38.6200, -77.2100], [38.5500, -77.2700],
+  [38.4500, -77.3000], [38.3000, -77.2600], [38.2000, -77.0500], [38.0000, -76.9000]
+];
+const DC_RING_LL = [DC_N, DC_E, DC_JONES, ...VA_SHORE.slice(1, -1).reverse(), DC_J];
+const VA_RING_LL = [...VA_UP, ...VA_SHORE, ...VA_DOWN, [37.5, -76.9], [37.5, -79.5], [39.325, -79.5]];
+const STATE_NAMES = { DC: 'District of Columbia', MD: 'Maryland', VA: 'Virginia' };
+
+/* --------------------------- settings hook --------------------------- */
+let CFG = { radiusMi: 0.25, nameRule: 'alnum', nameSource: 'full', quadrants: false };
+
+/* ------------------------------ GEO ------------------------------ */
+const DEG = Math.PI / 180, MI = 1609.344, LAT0 = 38.9, LON0 = -77.04;
+// metres per degree at the reference latitude (WGS84 series); a local equirectangular plane is accurate to ~0.3% across the region
+const MLAT = 111132.954 - 559.822 * Math.cos(2 * LAT0 * DEG) + 1.175 * Math.cos(4 * LAT0 * DEG);
+const MLON = 111412.84 * Math.cos(LAT0 * DEG) - 93.5 * Math.cos(3 * LAT0 * DEG) + 0.118 * Math.cos(5 * LAT0 * DEG);
+const toXY = (lat, lng) => [(lng - LON0) * MLON, (lat - LAT0) * MLAT];
+const toLL = (x, y) => [y / MLAT + LAT0, x / MLON + LON0];
+const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+const zoneR = () => CFG.radiusMi * MI;
+
+function segDist(px, py, ax, ay, bx, by) {
+  const vx = bx - ax, vy = by - ay, wx = px - ax, wy = py - ay, L = vx * vx + vy * vy;
+  let t = L > 0 ? (wx * vx + wy * vy) / L : 0;
+  t = t < 0 ? 0 : t > 1 ? 1 : t;
+  const dx = wx - t * vx, dy = wy - t * vy;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+function inRings(p, rings) { // even-odd over every ring (handles holes / multipolygons)
+  let ins = false; const x = p[0], y = p[1];
+  for (const r of rings) {
+    for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
+      const a = r[i], b = r[j];
+      if ((a[1] > y) !== (b[1] > y) && x < (b[0] - a[0]) * (y - a[1]) / (b[1] - a[1]) + a[0]) ins = !ins;
+    }
+  }
+  return ins;
+}
+function ringsBB(parts) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const part of parts) for (const q of part) { if (q[0] < x0) x0 = q[0]; if (q[0] > x1) x1 = q[0]; if (q[1] < y0) y0 = q[1]; if (q[1] > y1) y1 = q[1]; }
+  return [x0, y0, x1, y1];
+}
+function ringArea(r) { let a = 0; for (let i = 0, j = r.length - 1; i < r.length; j = i++) a += (r[j][0] + r[i][0]) * (r[j][1] - r[i][1]); return Math.abs(a / 2); }
+function densify(ring, maxLen, closed = true) {
+  const out = [], n = ring.length;
+  for (let i = 0; i < (closed ? n : n - 1); i++) {
+    const a = ring[i], b = ring[(i + 1) % n]; out.push(a);
+    const L = dist(a, b), k = Math.ceil(L / maxLen);
+    for (let s = 1; s < k; s++) out.push([a[0] + (b[0] - a[0]) * s / k, a[1] + (b[1] - a[1]) * s / k]);
+  }
+  if (!closed) out.push(ring[n - 1]);
+  return out;
+}
+function featDist(f, p) {
+  if (f.kind === 'pt') return dist(f.xy, p);
+  if (f.kind === 'pg' && inRings(p, f.xy)) return 0;
+  let best = Infinity;
+  for (const part of f.xy) {
+    if (part.length === 1) { best = Math.min(best, dist(part[0], p)); continue; }
+    for (let i = 0; i < part.length - 1; i++) { const d = segDist(p[0], p[1], part[i][0], part[i][1], part[i + 1][0], part[i + 1][1]); if (d < best) best = d; }
+    if (f.kind === 'pg') { const a = part[part.length - 1], b = part[0]; const d = segDist(p[0], p[1], a[0], a[1], b[0], b[1]); if (d < best) best = d; }
+  }
+  return best;
+}
+function bbDist(bb, p) { const dx = Math.max(bb[0] - p[0], 0, p[0] - bb[2]), dy = Math.max(bb[1] - p[1], 0, p[1] - bb[3]); return Math.hypot(dx, dy); }
+
+let FID = 0;
+// kind: 'pt' (geom [lat,lng]) | 'ln' | 'pg' (geom: array of parts, each an array of [lat,lng])
+function mkFeat(kind, name, geom, extra) {
+  const f = Object.assign({ kind, name: name || '', ll: geom }, extra || {});
+  if (!f.id) f.id = 'f' + (++FID);
+  if (kind === 'pt') { f.xy = toXY(geom[0], geom[1]); f.bb = [f.xy[0], f.xy[1], f.xy[0], f.xy[1]]; }
+  else { f.xy = geom.map(part => part.map(q => toXY(q[0], q[1]))); f.bb = ringsBB(f.xy); }
+  return f;
+}
+
+/* ------------------------- SPATIAL INDEX ------------------------- */
+// Uniform-grid index over points and segments. nearest() returns {k: feature index, d: metres}.
+// Polygon features return d=0 when the query point is inside them.
+class SIndex {
+  constructor(feats, opt = {}) {
+    this.f = feats; this.maxD = opt.maxD || Infinity;
+    const it = [];
+    for (let k = 0; k < feats.length; k++) {
+      const f = feats[k];
+      if (f.kind === 'pt') { it.push(k, f.xy[0], f.xy[1], f.xy[0], f.xy[1]); continue; }
+      for (const part of f.xy) {
+        if (part.length === 1) { it.push(k, part[0][0], part[0][1], part[0][0], part[0][1]); continue; }
+        for (let i = 0; i < part.length - 1; i++) it.push(k, part[i][0], part[i][1], part[i + 1][0], part[i + 1][1]);
+        if (f.kind === 'pg') { const a = part[part.length - 1], b = part[0]; if (a[0] !== b[0] || a[1] !== b[1]) it.push(k, a[0], a[1], b[0], b[1]); }
+      }
+    }
+    this.it = Float64Array.from(it); this.n = it.length / 5;
+    this.polys = []; for (let k = 0; k < feats.length; k++) if (feats[k].kind === 'pg') this.polys.push(k);
+    this.brute = this.n <= 64;
+    if (!this.brute) {
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity; const a = this.it;
+      for (let i = 0; i < this.n; i++) { const o = i * 5; x0 = Math.min(x0, a[o + 1], a[o + 3]); x1 = Math.max(x1, a[o + 1], a[o + 3]); y0 = Math.min(y0, a[o + 2], a[o + 4]); y1 = Math.max(y1, a[o + 2], a[o + 4]); }
+      const area = Math.max(1, (x1 - x0) * (y1 - y0));
+      this.c = opt.cell || Math.min(30000, Math.max(40, Math.sqrt(area / this.n) * 1.5));
+      const c = this.c; this.g = new Map(); this.big = [];
+      this.i0 = Math.floor(x0 / c); this.i1 = Math.floor(x1 / c); this.j0 = Math.floor(y0 / c); this.j1 = Math.floor(y1 / c);
+      for (let i = 0; i < this.n; i++) {
+        const o = i * 5, ia = Math.floor(Math.min(a[o + 1], a[o + 3]) / c), ib = Math.floor(Math.max(a[o + 1], a[o + 3]) / c),
+          ja = Math.floor(Math.min(a[o + 2], a[o + 4]) / c), jb = Math.floor(Math.max(a[o + 2], a[o + 4]) / c);
+        if ((ib - ia + 1) * (jb - ja + 1) > 256) { this.big.push(i); continue; }
+        for (let ii = ia; ii <= ib; ii++) for (let jj = ja; jj <= jb; jj++) { const key = SIndex.key(ii, jj); let arr = this.g.get(key); if (!arr) this.g.set(key, arr = []); arr.push(i); }
+      }
+    }
+    if (this.polys.length > 24) {
+      const pc = this.pc = Math.max(200, (this.c || 500) * 4); this.pg = new Map(); this.bigP = [];
+      for (const k of this.polys) {
+        const b = feats[k].bb, ia = Math.floor(b[0] / pc), ib = Math.floor(b[2] / pc), ja = Math.floor(b[1] / pc), jb = Math.floor(b[3] / pc);
+        if ((ib - ia + 1) * (jb - ja + 1) > 400) { this.bigP.push(k); continue; }
+        for (let ii = ia; ii <= ib; ii++) for (let jj = ja; jj <= jb; jj++) { const key = SIndex.key(ii, jj); let arr = this.pg.get(key); if (!arr) this.pg.set(key, arr = []); arr.push(k); }
+      }
+    }
+  }
+  static key(i, j) { return (i + 40000) * 80000 + (j + 40000); }
+  containing(p) {
+    let cand = this.polys;
+    if (this.pg) { const c = this.pg.get(SIndex.key(Math.floor(p[0] / this.pc), Math.floor(p[1] / this.pc))); cand = c ? this.bigP.concat(c) : this.bigP; }
+    let best = -1, bestA = Infinity;
+    for (const k of cand) {
+      const f = this.f[k], b = f.bb;
+      if (p[0] >= b[0] && p[0] <= b[2] && p[1] >= b[1] && p[1] <= b[3] && inRings(p, f.xy)) {
+        const A = (b[2] - b[0]) * (b[3] - b[1]); if (A < bestA) { bestA = A; best = k; }
+      }
+    }
+    return best;
+  }
+  nearest(p) {
+    const x = p[0], y = p[1];
+    if (this.polys.length) { const k = this.containing(p); if (k >= 0) return { k, d: 0 }; }
+    const a = this.it; let best = Infinity, bk = -1;
+    const test = i => { const o = i * 5; const d = segDist(x, y, a[o + 1], a[o + 2], a[o + 3], a[o + 4]); if (d < best) { best = d; bk = a[o]; } };
+    if (this.brute) { for (let i = 0; i < this.n; i++) test(i); }
+    else {
+      for (const i of this.big) test(i);
+      const c = this.c, ci = Math.floor(x / c), cj = Math.floor(y / c);
+      let maxR = Math.max(ci - this.i0, this.i1 - ci, cj - this.j0, this.j1 - cj);
+      if (this.maxD < Infinity) maxR = Math.min(maxR, Math.ceil(this.maxD / c) + 1);
+      const g = this.g, cell = (i, j) => { const arr = g.get(SIndex.key(i, j)); if (arr) for (let q = 0; q < arr.length; q++) test(arr[q]); };
+      for (let r = 0; r <= maxR; r++) {
+        if (best <= (r - 1) * c) break;
+        if (r === 0) { cell(ci, cj); continue; }
+        for (let i = ci - r; i <= ci + r; i++) { cell(i, cj - r); cell(i, cj + r); }
+        for (let j = cj - r + 1; j <= cj + r - 1; j++) { cell(ci - r, j); cell(ci + r, j); }
+      }
+    }
+    if (best > this.maxD) return { k: -1, d: Infinity };
+    return { k: bk, d: best };
+  }
+}
+
+// k nearest distinct keys (for override pickers)
+function kNearest(feats, p, k, keyFn, maxD = 60000) {
+  const best = new Map();
+  for (let i = 0; i < feats.length; i++) {
+    const f = feats[i]; if (bbDist(f.bb, p) > maxD) continue;
+    const key = keyFn(f), d = featDist(f, p), cur = best.get(key);
+    if (!cur || d < cur.d) best.set(key, { i, d, key, name: f.name });
+  }
+  return [...best.values()].sort((a, b) => a.d - b.d).slice(0, k);
+}
+
+/* ---------------------------- VORONOI ---------------------------- */
+function clipHalf(poly, nx, ny, c) { // keep nx*x + ny*y <= c
+  const out = [], n = poly.length;
+  for (let i = 0; i < n; i++) {
+    const A = poly[i], B = poly[(i + 1) % n], ea = nx * A[0] + ny * A[1] - c, eb = nx * B[0] + ny * B[1] - c;
+    if (ea <= 0) out.push(A);
+    if ((ea < 0 && eb > 0) || (ea > 0 && eb < 0)) { const t = ea / (ea - eb); out.push([A[0] + t * (B[0] - A[0]), A[1] + t * (B[1] - A[1])]); }
+  }
+  return out;
+}
+function voronoiCell(pts, k, B = 200000) {
+  const P = pts[k];
+  let poly = [[P[0] - B, P[1] - B], [P[0] + B, P[1] - B], [P[0] + B, P[1] + B], [P[0] - B, P[1] + B]];
+  const order = [];
+  for (let j = 0; j < pts.length; j++) if (j !== k) order.push([j, (pts[j][0] - P[0]) ** 2 + (pts[j][1] - P[1]) ** 2]);
+  order.sort((a, b) => a[1] - b[1]);
+  for (const [j, d2] of order) {
+    let maxr = 0; for (const v of poly) { const r = (v[0] - P[0]) ** 2 + (v[1] - P[1]) ** 2; if (r > maxr) maxr = r; }
+    if (d2 > 4 * maxr) break;
+    const Q = pts[j], nx = Q[0] - P[0], ny = Q[1] - P[1]; if (!nx && !ny) continue;
+    poly = clipHalf(poly, nx, ny, (nx * (P[0] + Q[0]) + ny * (P[1] + Q[1])) / 2);
+    if (poly.length < 3) break;
+  }
+  return poly;
+}
+
+/* ---------------------------- REGIONS ---------------------------- */
+const DC_RING = DC_RING_LL.map(q => toXY(q[0], q[1]));
+const VA_RING = VA_RING_LL.map(q => toXY(q[0], q[1]));
+function stateOf(p) { return inRings(p, [DC_RING]) ? 'DC' : inRings(p, [VA_RING]) ? 'VA' : 'MD'; }
+
+/* --------------------------- STATIONS --------------------------- */
+const STATIONS = ST_RAW.trim().split('\n').map((l, i) => {
+  const [code, name, lat, lng] = l.split('|');
+  return { i, code, name, lat: +lat, lng: +lng, ll: [+lat, +lng], xy: toXY(+lat, +lng), lines: [] };
+});
+const ST_BY = Object.fromEntries(STATIONS.map(s => [s.code, s]));
+for (const L of LINE_ORDER) for (const c of LINE_SEQ[L].split(' ')) { const s = ST_BY[c]; if (!s) throw new Error('bad code ' + c); if (!s.lines.includes(L)) s.lines.push(L); }
+for (const s of STATIONS) s.lines.sort((a, b) => LINE_ORDER.indexOf(a) - LINE_ORDER.indexOf(b));
+// unique track segments between consecutive stations, with the lines that use them
+const SEGMENTS = (() => {
+  const m = new Map();
+  for (const L of LINE_ORDER) {
+    const seq = LINE_SEQ[L].split(' ');
+    for (let i = 0; i < seq.length - 1; i++) {
+      const [a, b] = [seq[i], seq[i + 1]].sort(), key = a + b;
+      if (!m.has(key)) m.set(key, { a: ST_BY[a], b: ST_BY[b], lines: [] });
+      m.get(key).lines.push(L);
+    }
+  }
+  for (const s of m.values()) s.lines.sort((x, y) => LINE_ORDER.indexOf(x) - LINE_ORDER.indexOf(y));
+  return [...m.values()];
+})();
+let NEIGH = [];
+function computeNeighbors() {
+  const R = zoneR();
+  NEIGH = STATIONS.map(s => STATIONS.filter(t => t.i < s.i && dist(s.xy, t.xy) < 2 * R).map(t => t.i));
+}
+computeNeighbors();
+function nearestStation(p) { let b = null, bd = Infinity; for (const s of STATIONS) { const d = dist(s.xy, p); if (d < bd) { bd = d; b = s; } } return b; }
+function stationShort(name) { return name.split(/[-\/]/)[0].trim(); }
+function nameLen(name) {
+  const n = CFG.nameSource === 'short' ? stationShort(name) : name;
+  switch (CFG.nameRule) {
+    case 'letters': return (n.match(/[A-Za-z]/g) || []).length;
+    case 'nospace': return n.replace(/\s/g, '').length;
+    case 'all': return n.length;
+    default: return (n.match(/[A-Za-z0-9]/g) || []).length; // letters & digits
+  }
+}
+
+/* --------------------------- CATEGORIES --------------------------- */
+const BB = '38.60,-77.62,39.25,-76.70', BBX = '38.20,-78.40,39.60,-76.30';
+const CATS = {
+  airport: { label: 'Commercial Airport', icon: '✈', color: '#4263eb', type: 'pt', bundled: true },
+  line: { label: 'Transit Line', icon: 'Ⓜ', type: 'station' },
+  namelen: { label: "Station's Name Length", icon: 'Aa', type: 'station' },
+  street: { label: 'Street or Path', icon: '⟋', color: '#e8590c', type: 'street' },
+  state: { label: 'State/District', icon: '▱', type: 'state' },
+  ward: { label: 'Ward of DC', icon: 'W', color: '#7048e8', type: 'pg' },
+  mountain: { label: 'Mountain', icon: '▲', color: '#795548', type: 'pt', q: `node["natural"="peak"]["name"](${BBX});out;` },
+  landmass: { label: 'Landmass', icon: '◍', color: '#0c8599', type: 'land', q: `(way["place"~"^(island|islet)$"](${BB});relation["place"~"^(island|islet)$"](${BB}););out geom;` },
+  park: { label: 'Park', icon: '♣', color: '#2f9e44', type: 'pg', q: `(way["leisure"="park"]["name"](${BB});relation["leisure"="park"]["name"](${BB}););out geom;` },
+  amusement: { label: 'Amusement Park', icon: '☸', color: '#d6336c', type: 'pt', q: `nwr["tourism"="theme_park"](${BBX});out center;` },
+  zoo: { label: 'Zoo', icon: '🦒', color: '#f08c00', type: 'pt', q: `nwr["tourism"="zoo"](${BBX});out center;` },
+  aquarium: { label: 'Aquarium', icon: '🐟', color: '#1c7ed6', type: 'pt', q: `nwr["tourism"="aquarium"](${BBX});out center;` },
+  golf: { label: 'Golf Course', icon: '⛳', color: '#5c940d', type: 'pg', q: `(way["leisure"="golf_course"](${BB});relation["leisure"="golf_course"](${BB}););out geom;` },
+  museum: { label: 'Museum', icon: '🏛', color: '#ae3ec9', type: 'pt', q: `nwr["tourism"="museum"](${BB});out center;` },
+  cinema: { label: 'Movie Theater', icon: '🎬', color: '#e03131', type: 'pt', q: `nwr["amenity"="cinema"](${BB});out center;` },
+  hospital: { label: 'Hospital', icon: 'H', color: '#c92a2a', type: 'pt', q: `nwr["amenity"="hospital"](${BB});out center;` },
+  library: { label: 'Library', icon: '📚', color: '#1864ab', type: 'pt', q: `nwr["amenity"="library"](${BB});out center;` },
+  consulate: { label: 'Foreign Consulate', icon: '⚑', color: '#364fc7', type: 'pt', q: `(nwr["office"="diplomatic"](${BB});nwr["amenity"="embassy"](${BB}););out center;`, filter: t => !/residence|liaison/i.test(t.diplomatic || '') },
+  // measuring-only
+  station: { label: 'Metro Station', icon: 'Ⓜ', type: 'pt', bundled: true, measureOnly: true },
+  border: { label: 'State/District Border', icon: '┅', type: 'ln', bundled: true, measureOnly: true },
+  water: { label: 'Body of Water', icon: '≈', color: '#1971c2', type: 'ln', measureOnly: true, q: `(way["natural"="water"]["name"](${BB});relation["natural"="water"]["name"](${BB}););out geom(${BB});` },
+  custom: { label: 'A landmark you pick', icon: '✚', type: 'custom', measureOnly: true }
+};
+const MATCH_CATS = ['airport', 'line', 'namelen', 'street', 'state', 'ward', 'mountain', 'landmass', 'park', 'amusement', 'zoo', 'aquarium', 'golf', 'museum', 'cinema', 'hospital', 'library', 'consulate'];
+const MEASURE_CATS = ['airport', 'station', 'border', 'water', 'mountain', 'park', 'amusement', 'zoo', 'aquarium', 'golf', 'museum', 'cinema', 'hospital', 'library', 'consulate', 'custom'];
+const normName = s => (s || '').toLowerCase().replace(/[’']/g, "'").replace(/\s+/g, ' ').trim();
+function streetKey(name) {
+  let n = normName(name);
+  if (CFG.quadrants) n = n.replace(/\s+(northwest|northeast|southwest|southeast|nw|ne|sw|se)$/, '');
+  return n;
+}
+function keyFn(cat) {
+  if (cat === 'street') return f => streetKey(f.name);
+  if (cat === 'park' || cat === 'golf' || cat === 'ward') return f => f.name ? normName(f.name) : f.id;
+  return f => f.id;
+}
+
+/* ---------------------------- DATASETS ---------------------------- */
+const DS = {};
+let REQUEST_LOAD = () => { };
+function ds(cat) { const d = DS[cat]; if (d && d.status === 'ready') return d; REQUEST_LOAD(cat); return null; }
+function setDS(cat, feats, opt) {
+  const d = { status: 'ready', feats, index: new SIndex(feats, opt), version: ((DS[cat] && DS[cat].version) || 0) + 1, cells: new Map() };
+  if (feats.length && feats.every(f => f.kind === 'pt')) d.pts = feats.map(f => f.xy);
+  DS[cat] = d; return d;
+}
+setDS('airport', AIRPORTS.map(a => mkFeat('pt', a[1], [a[2], a[3]], { id: a[0] })));
+setDS('station', STATIONS.map(s => mkFeat('pt', s.name, s.ll, { id: s.code })));
+setDS('border', [
+  mkFeat('ln', 'DC boundary', [[...DC_RING_LL, DC_RING_LL[0]]], { id: 'b-dc' }),
+  mkFeat('ln', 'Maryland–Virginia line (Potomac, upstream)', [[...VA_UP, DC_J]], { id: 'b-up' }),
+  mkFeat('ln', 'Maryland–Virginia line (Potomac, downstream)', [[DC_JONES, ...VA_DOWN.slice(0, 10)]], { id: 'b-dn' })
+]);
+
+// Overpass → features
+function assembleRings(ways) {
+  const eq = (a, b) => Math.abs(a[0] - b[0]) < 1e-9 && Math.abs(a[1] - b[1]) < 1e-9;
+  const open = ways.filter(w => w.length > 1).map(w => w.slice()), rings = [];
+  while (open.length) {
+    let cur = open.shift(), changed = true;
+    while (!eq(cur[0], cur[cur.length - 1]) && changed) {
+      changed = false;
+      for (let i = 0; i < open.length; i++) {
+        const w = open[i], e = cur[cur.length - 1], s = cur[0];
+        if (eq(w[0], e)) cur = cur.concat(w.slice(1));
+        else if (eq(w[w.length - 1], e)) cur = cur.concat(w.slice(0, -1).reverse());
+        else if (eq(w[w.length - 1], s)) cur = w.slice(0, -1).concat(cur);
+        else if (eq(w[0], s)) cur = w.slice(1).reverse().concat(cur);
+        else continue;
+        open.splice(i, 1); changed = true; break;
+      }
+    }
+    if (cur.length > 2) rings.push(cur);
+  }
+  return rings;
+}
+function osmToFeats(els, cat, mode) { // mode: 'pt' (centres) | 'pg' (areas) | 'ln' (lines)
+  const out = [], C = CATS[cat] || {};
+  for (const el of els) {
+    const t = el.tags || {};
+    if (C.filter && !C.filter(t)) continue;
+    const name = t.name || t['name:en'] || t.official_name || '';
+    const id = el.type[0] + el.id;
+    if (mode === 'pt') {
+      const ll = el.type === 'node' ? [el.lat, el.lon] : el.center ? [el.center.lat, el.center.lon] : null;
+      if (ll) out.push(mkFeat('pt', name, ll, { id }));
+      continue;
+    }
+    let parts = [];
+    if (el.type === 'way' && el.geometry) parts = [el.geometry.filter(Boolean).map(g => [g.lat, g.lon])];
+    else if (el.type === 'relation' && el.members) parts = el.members.filter(m => m.type === 'way' && m.geometry).map(m => m.geometry.filter(Boolean).map(g => [g.lat, g.lon]));
+    else if (el.type === 'node' && mode === 'ln') continue;
+    parts = parts.filter(p => p.length > 1);
+    if (!parts.length) continue;
+    if (mode === 'pg') { const rings = assembleRings(parts); if (rings.length) out.push(mkFeat('pg', name, rings, { id })); }
+    else out.push(mkFeat('ln', name, parts, { id }));
+  }
+  return out;
+}
+function dedupePts(feats) { // OSM often maps one place as both a node and a building
+  const kept = [];
+  for (const f of feats) {
+    const n = normName(f.name);
+    if (kept.some(g => (n && normName(g.name) === n && dist(g.xy, f.xy) < 400) || (g.xy[0] === f.xy[0] && g.xy[1] === f.xy[1]))) continue;
+    kept.push(f);
+  }
+  return kept;
+}
+function compactFeats(feats) { const r = v => Math.round(v * 1e6) / 1e6; return feats.map(f => [f.kind, f.name, f.id, f.kind === 'pt' ? f.ll.map(r) : f.ll.map(p => p.map(q => [r(q[0]), r(q[1])]))]); }
+function expandFeats(c) { return c.map(([k, n, id, g]) => mkFeat(k, n, g, { id })); }
+
+/* ---------------------------- COMPILE ---------------------------- */
+const fmtDist = m => { const mi = m / MI; if (mi < 0.1) return Math.round(m * 3.28084) + ' ft'; return (mi < 10 ? mi.toFixed(2) : mi.toFixed(1)) + ' mi'; };
+const islandsOf = d => d ? d.feats : [];
+function landmassOf(p, d) { if (!d) return 'mainland'; const k = d.index.containing(p); return k >= 0 ? d.feats[k].id : 'mainland'; }
+function fillRings(t, V, rings, rule) { t.beginPath(); for (const r of rings) { r.forEach((q, i) => { const s = V.xy(q[0], q[1]); i ? t.lineTo(s[0], s[1]) : t.moveTo(s[0], s[1]); }); t.closePath(); } t.fill(rule || 'nonzero'); }
+function pathParts(t, V, parts, close) { for (const r of parts) { r.forEach((q, i) => { const s = V.xy(q[0], q[1]); i ? t.lineTo(s[0], s[1]) : t.moveTo(s[0], s[1]); }); if (close) t.closePath(); } }
+const bbNear = (bb, vb, m) => !(bb[2] < vb[0] - m || bb[0] > vb[2] + m || bb[3] < vb[1] - m || bb[1] > vb[3] + m);
+
+function paintBuffer(t, V, feats, d0) {
+  t.lineJoin = 'round'; t.lineCap = 'round';
+  const rpx = d0 / V.mpp(V.clat);
+  t.beginPath();
+  for (const f of feats) if (f.kind === 'pt' && bbNear(f.bb, V.vb, d0)) { const s = V.xy(f.xy[0], f.xy[1]); t.moveTo(s[0] + rpx, s[1]); t.arc(s[0], s[1], rpx, 0, 2 * Math.PI); }
+  t.fill();
+  t.lineWidth = Math.max(0.5, 2 * rpx);
+  for (const f of feats) {
+    if (f.kind === 'pt' || !bbNear(f.bb, V.vb, d0)) continue;
+    t.beginPath(); pathParts(t, V, f.xy, f.kind === 'pg');
+    if (f.kind === 'pg') t.fill('evenodd');
+    if (d0 > 0) t.stroke();
+  }
+}
+
+// Every compiled question/shape: {ok, pending, msg, mode:'keep'|'remove'|null, test(p), paint(t,V), stationOk(st), grid, overlay, info, cost}
+function compileQ(q) {
+  const R = { q, id: q.id, ok: false, pending: false, msg: '', info: {}, cost: 1, sig: '' };
+  try {
+    if (q.type === 'radar') cRadar(q, R);
+    else if (q.type === 'thermo') cThermo(q, R);
+    else if (q.type === 'measure') cMeasure(q, R);
+    else if (q.type === 'match') cMatch(q, R);
+    else if (q.type === 'custom') cCustom(q, R);
+  } catch (e) { R.ok = false; R.msg = 'Error: ' + e.message; if (typeof console !== 'undefined') console.error(e); }
+  return R;
+}
+function needPt(p, R, what) { if (!p) { R.msg = `Set the ${what || 'seeker'} location`; return false; } return true; }
+
+function cRadar(q, R) {
+  if (!needPt(q.p, R)) return;
+  const c = toXY(q.p[0], q.p[1]), r = (+q.distMi || 0) * MI, yes = q.answer !== 'no';
+  if (!(r > 0)) { R.msg = 'Enter a radar distance'; return; }
+  R.ok = true; R.mode = yes ? 'keep' : 'remove'; R.cost = 1;
+  R.test = yes ? p => dist(p, c) <= r : p => dist(p, c) > r;
+  R.paint = (t, V) => { const s = V.xy(c[0], c[1]), rp = r / V.mpp(q.p[0]); t.beginPath(); t.arc(s[0], s[1], rp, 0, 2 * Math.PI); t.fill(); };
+  R.shapes = [{ circle: c, r, lat: q.p[0] }];
+  R.info.text = yes ? `Hider is within ${fmtDist(r)} of the seeker.` : `Hider is more than ${fmtDist(r)} from the seeker.`;
+}
+function cThermo(q, R) {
+  if (!q.a) { R.msg = 'Set the start point'; return; }
+  if (!q.b) { R.msg = 'Set the end point'; return; }
+  const A = toXY(q.a[0], q.a[1]), B = toXY(q.b[0], q.b[1]), D = dist(A, B);
+  if (D < 1) { R.msg = 'Start and end are the same point'; return; }
+  const hot = q.answer !== 'colder', T = hot ? B : A, F = hot ? A : B;
+  R.ok = true; R.mode = 'keep'; R.cost = 1;
+  R.test = p => dist(p, T) < dist(p, F);
+  const n = [(T[0] - F[0]) / D, (T[1] - F[1]) / D], M = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2], u = [-n[1], n[0]], L = 160000;
+  const poly = densify([[M[0] + u[0] * L, M[1] + u[1] * L], [M[0] + u[0] * L + n[0] * L, M[1] + u[1] * L + n[1] * L],
+  [M[0] - u[0] * L + n[0] * L, M[1] - u[1] * L + n[1] * L], [M[0] - u[0] * L, M[1] - u[1] * L]], 2000);
+  R.paint = (t, V) => fillRings(t, V, [poly]);
+  R.bisector = densify([[M[0] + u[0] * L, M[1] + u[1] * L], [M[0] - u[0] * L, M[1] - u[1] * L]], 1000, false);
+  const need = (+q.distMi || 0) * MI;
+  R.info.traveled = D;
+  R.info.text = `Traveled ${fmtDist(D)}${need && D < need * 0.98 ? ` — less than the ${q.distMi} mi this card requires` : ''}. Hider is ${hot ? 'closer to the end point' : 'closer to the start point'}.`;
+  R.info.warn = need && D < need * 0.98;
+}
+function cMeasure(q, R) {
+  if (!needPt(q.p, R)) return;
+  const C = CATS[q.cat]; if (!C) { R.msg = 'Choose what to measure to'; return; }
+  const s = toXY(q.p[0], q.p[1]), closer = q.answer !== 'further';
+  let feats, index, d0, nf;
+  if (q.cat === 'custom') {
+    if (!q.t) { R.msg = 'Set the landmark location'; return; }
+    nf = mkFeat('pt', q.tName || 'Landmark', q.t, { id: 'custom' }); feats = [nf]; index = new SIndex(feats); d0 = dist(s, nf.xy);
+  } else {
+    const d = ds(q.cat);
+    if (!d) { R.pending = true; R.msg = `Loading ${C.label.toLowerCase()} data…`; return; }
+    if (!d.feats.length) { R.msg = `No ${C.label.toLowerCase()} data available`; return; }
+    feats = d.feats; index = d.index;
+    if (q.target) { const k = feats.findIndex(f => f.id === q.target); if (k >= 0) { nf = feats[k]; d0 = featDist(nf, s); } }
+    if (!nf) { const r = index.nearest(s); nf = feats[r.k]; d0 = r.d; }
+  }
+  R.ok = true; R.mode = closer ? 'keep' : 'remove'; R.cost = C.type === 'pt' || q.cat === 'custom' ? 3 : 5;
+  R.test = closer ? p => index.nearest(p).d < d0 : p => index.nearest(p).d > d0;
+  R.paint = (t, V) => paintBuffer(t, V, feats, d0);
+  R.info.d0 = d0; R.info.nearest = nf;
+  R.info.text = `Seeker is ${fmtDist(d0)} from the nearest ${C.label.toLowerCase()}: ${nf.name || '(unnamed)'}. Hider is ${closer ? 'closer than' : 'further than'} that.`;
+  R.highlight = { feats: [nf], cat: q.cat };
+}
+function cMatch(q, R) {
+  if (!needPt(q.p, R)) return;
+  const C = CATS[q.cat]; if (!C) { R.msg = 'Choose a category'; return; }
+  const s = toXY(q.p[0], q.p[1]), yes = q.answer !== 'no';
+  if (q.cat === 'line') {
+    const near = nearestStation(s), L = q.line || near.lines[0];
+    R.info.line = L; R.info.station = near;
+    R.ok = true; R.mode = null; R.stationOk = st => yes === st.lines.includes(L);
+    R.info.text = `Seeker's line: ${LINES[L].n}. ${yes ? 'Only stations on the ' + LINES[L].n + ' Line remain.' : 'Stations on the ' + LINES[L].n + ' Line are ruled out.'}`;
+    return;
+  }
+  if (q.cat === 'namelen') {
+    const near = q.station ? ST_BY[q.station] : nearestStation(s);
+    const N = q.len != null && q.len !== '' ? +q.len : nameLen(near.name);
+    R.info.station = near; R.info.len = N;
+    R.ok = true; R.mode = null; R.stationOk = st => yes === (nameLen(st.name) === N);
+    R.info.text = `Seeker's station ${near.name} → ${N} characters. ${yes ? 'Only stations with ' + N + '-character names remain.' : 'Stations with ' + N + '-character names are ruled out.'}`;
+    return;
+  }
+  if (q.cat === 'state') {
+    const X = q.state || stateOf(s);
+    const DC = [DC_RING], VA = [VA_RING];
+    const paintX = (t, V) => {
+      if (X === 'DC') fillRings(t, V, DC);
+      else if (X === 'VA') { fillRings(t, V, VA); t.globalCompositeOperation = 'destination-out'; fillRings(t, V, DC); }
+      else { t.fillRect(0, 0, V.W, V.H); t.globalCompositeOperation = 'destination-out'; fillRings(t, V, VA); fillRings(t, V, DC); }
+      t.globalCompositeOperation = 'source-over';
+    };
+    R.ok = true; R.mode = yes ? 'keep' : 'remove'; R.cost = 2; R.paint = paintX;
+    R.test = p => yes === (stateOf(p) === X);
+    R.info.state = X; R.info.text = `Seeker is in ${STATE_NAMES[X]}. ${yes ? 'Hider is too.' : 'Hider is not.'}`;
+    return;
+  }
+  if (C.type === 'land') {
+    const d = ds('landmass'); if (!d) { R.pending = true; R.msg = 'Loading islands…'; return; }
+    const X = q.land || landmassOf(s, d), isl = d.feats, f = isl.find(g => g.id === X);
+    R.ok = true; R.mode = yes ? 'keep' : 'remove'; R.cost = 2;
+    R.paint = (t, V) => {
+      if (f) fillRings(t, V, f.xy, 'evenodd');
+      else { t.fillRect(0, 0, V.W, V.H); t.globalCompositeOperation = 'destination-out'; for (const g of isl) if (bbNear(g.bb, V.vb, 0)) fillRings(t, V, g.xy, 'evenodd'); t.globalCompositeOperation = 'source-over'; }
+    };
+    R.test = p => yes === (landmassOf(p, d) === X);
+    R.info.land = X; R.info.text = `Seeker is on ${f ? (f.name || 'an island') : 'the mainland'}.`;
+    if (f) R.highlight = { feats: [f], cat: 'landmass' };
+    return;
+  }
+  const d = ds(q.cat);
+  if (!d) { R.pending = true; R.msg = `Loading ${C.label.toLowerCase()} data…`; return; }
+  if (!d.feats.length) { R.msg = `No ${C.label.toLowerCase()} data available`; return; }
+  const kf = keyFn(q.cat);
+  let k = -1;
+  if (q.target) k = d.feats.findIndex(f => kf(f) === q.target || f.id === q.target);
+  if (k < 0) { const r = d.index.nearest(s); k = r.k; }
+  if (k < 0) { R.msg = `No ${C.label.toLowerCase()} found near the seeker`; return; }
+  const tf = d.feats[k], tkey = kf(tf);
+  R.info.target = tf; R.info.targetKey = tkey; R.info.d0 = featDist(tf, s);
+  R.highlight = { feats: d.feats.filter(f => kf(f) === tkey), cat: q.cat };
+  R.info.text = `Seeker's nearest ${C.label.toLowerCase()}: ${tf.name || '(unnamed)'} (${fmtDist(R.info.d0)}). ${yes ? 'Hider has the same one.' : 'Hider\'s is different.'}`;
+  if (C.type === 'pt') {
+    let cell = d.cells.get(k); if (!cell) { cell = densify(voronoiCell(d.pts, k), 1500); d.cells.set(k, cell); }
+    R.ok = true; R.mode = yes ? 'keep' : 'remove'; R.cost = 3; R.cell = cell;
+    R.paint = (t, V) => fillRings(t, V, [cell]);
+    R.test = p => yes === (d.index.nearest(p).k === k);
+    return;
+  }
+  // polygons / streets: nearest-feature regions have no closed form → evaluated on a fine grid
+  R.ok = true; R.mode = 'remove'; R.cost = q.cat === 'street' ? 10 : 8;
+  R.grid = { cell: q.cat === 'street' ? 10 : 15 };
+  R.sig = q.cat + '|' + tkey + '|' + yes + '|' + d.version + '|' + CFG.quadrants;
+  R.test = p => { const r = d.index.nearest(p); return yes === (r.k >= 0 && kf(d.feats[r.k]) === tkey); };
+}
+function cCustom(q, R) {
+  const inside = q.mode === 'keep';
+  if (q.shape === 'circle') {
+    if (!q.c || !(q.r > 0)) { R.msg = 'Incomplete circle'; return; }
+    const c = toXY(q.c[0], q.c[1]), r = q.r;
+    R.test = inside ? p => dist(p, c) <= r : p => dist(p, c) > r;
+    R.paint = (t, V) => { const s = V.xy(c[0], c[1]); t.beginPath(); t.arc(s[0], s[1], r / V.mpp(q.c[0]), 0, 2 * Math.PI); t.fill(); };
+  } else {
+    if (!q.pts || q.pts.length < 3) { R.msg = 'Need at least 3 points'; return; }
+    const ring = q.pts.map(p => toXY(p[0], p[1]));
+    R.test = inside ? p => inRings(p, [ring]) : p => !inRings(p, [ring]);
+    R.paint = (t, V) => fillRings(t, V, [ring]);
+    R.ring = ring;
+  }
+  R.ok = true; R.mode = inside ? 'keep' : 'remove'; R.cost = 1;
+}
+
+/* ----------------------------- STATS ----------------------------- */
+let SAMPLE = { r: 0, offs: [], step: 0 };
+function sampleOffsets() {
+  const R = zoneR(); if (SAMPLE.r === R) return SAMPLE;
+  const s = Math.max(12, R / 13), offs = [];
+  for (let y = -R + s / 2; y < R; y += s) for (let x = -R + s / 2; x < R; x += s) if (x * x + y * y <= R * R) offs.push([x, y]);
+  return SAMPLE = { r: R, offs, step: s };
+}
+// baseOk(st) → bool (line/manual rule-outs). Returns per-station fraction remaining and union area.
+function computeStats(cqs, baseOk) {
+  const R = zoneR(), R2 = R * R, { offs, step } = sampleOffsets(), N = STATIONS.length;
+  const active = cqs.filter(c => c && c.ok);
+  const allowed = new Uint8Array(N), pct = new Float32Array(N), preGrid = new Uint8Array(N);
+  for (const st of STATIONS) allowed[st.i] = (baseOk ? baseOk(st) : true) && active.every(c => !c.stationOk || c.stationOk(st)) ? 1 : 0;
+  const tests = active.filter(c => c.test).sort((a, b) => a.cost - b.cost);
+  const firstGrid = tests.findIndex(c => c.grid);
+  let uniq = 0, zones = 0;
+  for (const st of STATIONS) {
+    if (!allowed[st.i]) continue;
+    let alive = 0; const cx = st.xy[0], cy = st.xy[1], nb = NEIGH[st.i];
+    for (const o of offs) {
+      const p = [cx + o[0], cy + o[1]]; let ok = true;
+      for (let t = 0; t < tests.length; t++) { if (t === firstGrid) preGrid[st.i] = 1; if (!tests[t].test(p)) { ok = false; break; } }
+      if (ok) {
+        if (firstGrid < 0) preGrid[st.i] = 1;
+        alive++; let dup = false;
+        for (const j of nb) { if (allowed[j]) { const q = STATIONS[j].xy, dx = p[0] - q[0], dy = p[1] - q[1]; if (dx * dx + dy * dy < R2) { dup = true; break; } } }
+        if (!dup) uniq++;
+      }
+    }
+    pct[st.i] = alive / offs.length; if (alive) zones++;
+  }
+  return { pct, allowed, preGrid, zones, areaMi2: uniq * step * step / (MI * MI), n: active.length };
+}
+
+/* ------------------------- exports (node tests) ------------------------- */
+</script>
+<script>'use strict';
+/* global L */
+/* =====================================================================
+   Hide + Seek DC — map + interface
+   ===================================================================== */
+const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const uid = () => Math.random().toString(36).slice(2, 9);
+const isMobile = () => window.matchMedia('(max-width:820px)').matches;
+const QT = {
+  match: { n: 'Matching', hex: '#2f6fde', ic: '=', ask: 'Is your nearest ___ the same as my nearest ___?' },
+  measure: { n: 'Measuring', hex: '#12936a', ic: '↔', ask: 'Compared to me, are you closer to or further from ___?' },
+  thermo: { n: 'Thermometer', hex: '#e8590c', ic: '🌡', ask: "I've just traveled (at least) [distance]. Am I hotter or colder?" },
+  radar: { n: 'Radar', hex: '#c2255c', ic: '◎', ask: 'Are you within [distance] of me?' }
+};
+const RADAR_D = [0.25, 0.5, 1, 3, 5, 10], THERMO_D = [0.5, 3];
+
+/* ------------------------------ STATE ------------------------------ */
+const DEFAULT_STATE = () => ({
+  v: 1, questions: [], ruledLines: {}, lineMode: 'all', stationOverride: {}, customs: [],
+  settings: { radiusMi: 0.25, nameRule: 'alnum', nameSource: 'full', quadrants: false, basemap: 'voyager', googleKey: '', shade: 0.6 },
+  layers: { lines: true, zones: true, labels: true, borders: false, voronoi: false, cats: {} }
+});
+function mergeState(base, j) {
+  const s = Object.assign(base, j || {});
+  s.settings = Object.assign(DEFAULT_STATE().settings, (j && j.settings) || {});
+  s.layers = Object.assign(DEFAULT_STATE().layers, (j && j.layers) || {}); s.layers.cats = s.layers.cats || {};
+  ['questions', 'customs'].forEach(k => { if (!Array.isArray(s[k])) s[k] = []; });
+  return s;
+}
+function loadState() { try { const j = JSON.parse(localStorage.getItem('hsdc-v1')); if (j && j.v === 1) return mergeState(DEFAULT_STATE(), j); } catch (e) { } return DEFAULT_STATE(); }
+let S = loadState();
+CFG = S.settings;
+let saveT = 0;
+function save() { clearTimeout(saveT); saveT = setTimeout(() => { try { localStorage.setItem('hsdc-v1', JSON.stringify(S)); } catch (e) { } }, 200); }
+
+/* ------------------------------ CACHE (IndexedDB) ------------------------------ */
+const IDB = {
+  db: null, p: null,
+  open() {
+    if (this.p) return this.p;
+    return this.p = new Promise(res => {
+      try { const r = indexedDB.open('hsdc', 1); r.onupgradeneeded = () => r.result.createObjectStore('kv'); r.onsuccess = () => { this.db = r.result; res(this.db); }; r.onerror = () => res(null); }
+      catch (e) { res(null); }
+    });
+  },
+  async get(k) { const db = await this.open(); if (!db) return null; return new Promise(res => { try { const q = db.transaction('kv').objectStore('kv').get(k); q.onsuccess = () => res(q.result || null); q.onerror = () => res(null); } catch (e) { res(null); } }); },
+  async set(k, v) { const db = await this.open(); if (!db) return; try { db.transaction('kv', 'readwrite').objectStore('kv').put(v, k); } catch (e) { } },
+  async clear() { const db = await this.open(); if (!db) return; try { db.transaction('kv', 'readwrite').objectStore('kv').clear(); } catch (e) { } }
+};
+const TTL = 21 * 864e5;
+async function cacheGet(k) { const v = await IDB.get(k); return v && Date.now() - v.t < TTL ? v.d : null; }
+function cacheSet(k, d) { IDB.set(k, { t: Date.now(), d }); }
+
+/* ------------------------------ DATA LOADING ------------------------------ */
+const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
+let opActive = 0; const opQueue = [];
+function overpass(q) { return new Promise((res, rej) => { opQueue.push({ q, res, rej }); pumpOP(); }); }
+function pumpOP() { while (opActive < 2 && opQueue.length) { const j = opQueue.shift(); opActive++; runOP(j.q).then(j.res, j.rej).finally(() => { opActive--; pumpOP(); }); } }
+async function runOP(q) {
+  let err;
+  for (const url of OVERPASS) {
+    try {
+      const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 100000);
+      const r = await fetch(url, { method: 'POST', body: new URLSearchParams({ data: q }), signal: ctl.signal });
+      clearTimeout(tm);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const j = await r.json();
+      if (j.remark && /error|timed out/i.test(j.remark) && !(j.elements && j.elements.length)) throw new Error(j.remark);
+      return j;
+    } catch (e) { err = e; }
+  }
+  throw err || new Error('Overpass unavailable');
+}
+async function loadOverpassCat(cat) {
+  const C = CATS[cat], mode = C.type === 'pt' ? 'pt' : C.type === 'ln' ? 'ln' : 'pg';
+  const j = await overpass('[out:json][timeout:90];' + C.q);
+  let feats = osmToFeats(j.elements || [], cat, mode);
+  if (mode === 'pt') feats = dedupePts(feats);
+  return feats;
+}
+async function loadWards() {
+  const url = 'https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Administrative_Other_Boundaries_WebMercator/MapServer/53/query?where=1%3D1&outFields=*&outSR=4326&f=geojson&geometryPrecision=6';
+  try {
+    const r = await fetch(url); if (!r.ok) throw new Error('HTTP ' + r.status);
+    const gj = await r.json(), out = [];
+    for (const f of gj.features || []) {
+      const p = f.properties || {}, g = f.geometry; if (!g) continue;
+      let num = p.WARD || p.WARD_ID || p.WARD_NUM || p.ward; if (!num && p.NAME) num = String(p.NAME).replace(/\D/g, '');
+      const polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
+      const rings = []; for (const poly of polys) for (const ring of poly) rings.push(ring.map(c => [c[1], c[0]]));
+      if (rings.length) out.push(mkFeat('pg', 'Ward ' + num, rings, { id: 'ward' + num }));
+    }
+    if (out.length >= 8) return out.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+    throw new Error('unexpected ward data');
+  } catch (e) {
+    const j = await overpass('[out:json][timeout:60];relation["boundary"="administrative"]["name"~"^Ward [1-8]$"](38.79,-77.12,39.0,-76.90);out geom;');
+    const feats = osmToFeats(j.elements || [], 'ward', 'pg');
+    if (feats.length < 8) throw new Error('Ward boundaries unavailable');
+    return feats;
+  }
+}
+const LOADING = {};
+function requestLoad(cat, force) {
+  const C = CATS[cat]; if (!C || C.bundled || C.type === 'station' || C.type === 'state' || C.type === 'custom' || cat === 'street') return;
+  const cur = DS[cat]; if (LOADING[cat] || (cur && cur.status === 'ready') || (cur && cur.status === 'error' && !force)) return;
+  LOADING[cat] = true; DS[cat] = { status: 'loading' };
+  setTimeout(renderLayers, 0); updateChip();
+  (async () => {
+    try {
+      let c = await cacheGet('cat:' + cat), feats;
+      if (c) feats = expandFeats(c);
+      else { feats = cat === 'ward' ? await loadWards() : await loadOverpassCat(cat); cacheSet('cat:' + cat, compactFeats(feats)); }
+      setDS(cat, feats);
+    } catch (e) {
+      DS[cat] = { status: 'error', err: String(e.message || e) };
+      toast(`Couldn't load ${C.label.toLowerCase()} data (${DS[cat].err}). Retry from the Layers tab.`);
+    }
+    LOADING[cat] = false; renderLayers(); recompute();
+  })();
+}
+REQUEST_LOAD = requestLoad;
+
+// Streets: fetched per hiding zone (and around seeker points), only where zones are still possible
+const STREETS = { byId: new Map(), loaded: new Set(), inflight: new Set(), queue: [], busy: false, restored: false };
+const STREET_SKIP = /^(bus_stop|platform|proposed|construction|elevator|corridor|abandoned|razed|raceway|escape|emergency_bay|rest_area|services|disused)$/;
+function streetCenter(key) { if (key.startsWith('s:')) { const st = ST_BY[key.slice(2)]; return [st.lat, st.lng, Math.round(zoneR() + 450)]; } const [a, b] = key.slice(2).split(',').map(Number); return [a, b, 500]; }
+async function restoreStreets() {
+  if (STREETS.restored) return; STREETS.restored = true;
+  const c = await cacheGet('streets');
+  if (c && c.r === zoneR()) { for (const f of expandFeats(c.f)) STREETS.byId.set(f.id, f); c.k.forEach(k => STREETS.loaded.add(k)); rebuildStreets(); }
+}
+function rebuildStreets() { setDS('street', [...STREETS.byId.values()], { cell: 120, maxD: 2500 }); }
+function ensureStreets(keys) {
+  const miss = keys.filter(k => !STREETS.loaded.has(k) && !STREETS.inflight.has(k));
+  if (!miss.length) return;
+  miss.forEach(k => { STREETS.inflight.add(k); STREETS.queue.push(k); });
+  pumpStreets(); updateChip();
+}
+async function pumpStreets() {
+  if (STREETS.busy) return; STREETS.busy = true;
+  await restoreStreets();
+  while (STREETS.queue.length) {
+    const batch = STREETS.queue.splice(0, 14).filter(k => !STREETS.loaded.has(k));
+    if (!batch.length) continue;
+    const q = '[out:json][timeout:120];(' + batch.map(k => { const [a, b, r] = streetCenter(k); return `way["highway"]["name"](around:${r},${a.toFixed(6)},${b.toFixed(6)});`; }).join('') + ');out geom;';
+    try {
+      const j = await overpass(q);
+      for (const el of j.elements || []) {
+        if (el.type !== 'way' || !el.geometry || STREET_SKIP.test(el.tags.highway)) continue;
+        if (STREETS.byId.has('w' + el.id)) continue;
+        STREETS.byId.set('w' + el.id, mkFeat('ln', el.tags.name, [el.geometry.map(g => [g.lat, g.lon])], { id: 'w' + el.id }));
+      }
+      batch.forEach(k => STREETS.loaded.add(k));
+      rebuildStreets();
+      cacheSet('streets', { r: zoneR(), k: [...STREETS.loaded], f: compactFeats([...STREETS.byId.values()]) });
+    } catch (e) { toast('Street data failed to load: ' + (e.message || e) + '. Will retry.'); STREETS.queue.unshift(...batch); await new Promise(r => setTimeout(r, 5000)); }
+    batch.forEach(k => STREETS.inflight.delete(k));
+    recompute();
+  }
+  STREETS.busy = false; updateChip();
+}
+// streets for the on-map "Street or Path" layer (only when zoomed in)
+const VSTREETS = { boxes: [], feats: new Map(), busy: false };
+function loadViewStreets() {
+  if (!S.layers.cats.street || map.getZoom() < 15 || VSTREETS.busy) return;
+  const b = map.getBounds(), box = [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()];
+  if (VSTREETS.boxes.some(x => x[0] <= box[0] && x[1] <= box[1] && x[2] >= box[2] && x[3] >= box[3])) return;
+  const pad = 0.004, bb = [box[0] - pad, box[1] - pad, box[2] + pad, box[3] + pad];
+  VSTREETS.busy = true;
+  overpass(`[out:json][timeout:40];way["highway"]["name"](${bb.map(v => v.toFixed(5)).join(',')});out geom;`).then(j => {
+    for (const el of j.elements || []) if (el.geometry && !STREET_SKIP.test(el.tags.highway) && !VSTREETS.feats.has(el.id)) VSTREETS.feats.set(el.id, mkFeat('ln', el.tags.name, [el.geometry.map(g => [g.lat, g.lon])], { id: 'w' + el.id }));
+    VSTREETS.boxes.push(bb); requestRedraw();
+  }).catch(() => { }).finally(() => { VSTREETS.busy = false; });
+}
+
+/* ------------------------------ COMPILE + STATS ------------------------------ */
+let ED = null;           // open editor: {q, orig (id|null), cq}
+let CQS = [];            // compiled active constraints (incl. draft)
+let STATS = null, BASE_STATS = null;
+let recT = 0;
+function baseOk(st) {
+  const o = S.stationOverride[st.code]; if (o === 'out') return false; if (o === 'in') return true;
+  const ruled = st.lines.filter(l => S.ruledLines[l]); if (!ruled.length) return true;
+  return S.lineMode === 'any' ? false : ruled.length < st.lines.length;
+}
+function activeQuestions(withDraft = true) {
+  const qs = S.questions.filter(q => q.enabled !== false && !(ED && ED.orig === q.id));
+  if (withDraft && ED) qs.push(ED.q);
+  return qs;
+}
+function compileAll(qs) {
+  const cqs = qs.map(q => compileQ(q));
+  for (const c of S.customs) if (c.enabled !== false) { const cq = compileQ(Object.assign({}, c, { type: 'custom' })); cq.custom = c; cqs.push(cq); }
+  // Streets: make sure names are loaded for every zone still possible under the other constraints
+  const sc = cqs.filter(c => c.q.type === 'match' && c.q.cat === 'street' && c.q.p);
+  if (sc.length) {
+    const pre = computeStats(cqs.filter(c => !sc.includes(c)), baseOk);
+    const keys = STATIONS.filter(s => pre.pct[s.i] > 0).map(s => 's:' + s.code);
+    sc.forEach(c => keys.push('p:' + c.q.p[0].toFixed(4) + ',' + c.q.p[1].toFixed(4)));
+    const miss = keys.filter(k => !STREETS.loaded.has(k));
+    if (miss.length) {
+      ensureStreets(miss);
+      sc.forEach(c => { c.ok = false; c.pending = true; c.msg = `Loading street names for ${miss.length} area${miss.length > 1 ? 's' : ''}…`; });
+    } else if (!DS.street) sc.forEach(c => { c.ok = false; c.pending = true; c.msg = 'Loading street names…'; });
+  }
+  return cqs;
+}
+function recompute() { clearTimeout(recT); recT = setTimeout(doRecompute, 25); }
+function doRecompute() {
+  CQS = compileAll(activeQuestions(true));
+  STATS = computeStats(CQS, baseOk);
+  if (ED) { const committed = CQS.filter(c => c.q !== ED.q); BASE_STATS = computeStats(committed, baseOk); } else BASE_STATS = STATS;
+  renderSummary(); renderQList(); renderZones(); if (ED) refreshEditorInfo();
+  requestRedraw(); updateChip();
+}
+
+/* ------------------------------ MAP ------------------------------ */
+let map, baseLayer = null;
+const BASEMAPS = {
+  voyager: { n: 'Streets & neighborhoods (CARTO Voyager)', url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', o: { subdomains: 'abcd', maxZoom: 20, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>' } },
+  osm: { n: 'OpenStreetMap standard (more detail)', url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', o: { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' } },
+  light: { n: 'Light & quiet (CARTO Positron)', url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', o: { subdomains: 'abcd', maxZoom: 20, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>' } },
+  google: { n: 'Google Maps (needs your API key)' }
+};
+async function setBasemap(name) {
+  if (name === 'google' && !S.settings.googleKey) { toast('Add a Google Maps API key in the Game tab first.'); name = 'voyager'; }
+  let layer;
+  if (name === 'google') {
+    try {
+      const key = S.settings.googleKey;
+      const r = await fetch('https://tile.googleapis.com/v1/createSession?key=' + encodeURIComponent(key), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mapType: 'roadmap', language: 'en-US', region: 'US' }) });
+      const j = await r.json(); if (!j.session) throw new Error((j.error && j.error.message) || 'no session');
+      layer = L.tileLayer('https://tile.googleapis.com/v1/2dtiles/{z}/{x}/{y}?session=' + j.session + '&key=' + encodeURIComponent(key), { maxZoom: 21, attribution: 'Map data &copy;' + new Date().getFullYear() + ' Google' });
+    } catch (e) { toast('Google Maps failed: ' + e.message + '. Using the default map.'); name = 'voyager'; }
+  }
+  if (!layer) { const b = BASEMAPS[name] || BASEMAPS.voyager; layer = L.tileLayer(b.url, b.o); }
+  if (baseLayer) baseLayer.remove();
+  baseLayer = layer.addTo(map);
+  S.settings.basemap = name; save(); renderLayers();
+}
+
+/* ------------------------------ OVERLAY RENDERING ------------------------------ */
+const OV = { pad: 0.25, raf: 0, last: 0, hits: [], V: null, hatch: null };
+const GRID = { cache: new Map(), pending: new Set(), queue: [], busy: false };
+function mkCanvas() { return document.createElement('canvas'); }
+function initOverlay() {
+  map.createPane('hsPane'); const pane = map.getPane('hsPane'); pane.style.zIndex = 450; pane.style.pointerEvents = 'none';
+  OV.cv = mkCanvas(); OV.cv.className = 'hs-canvas leaflet-zoom-hide'; pane.appendChild(OV.cv); OV.ctx = OV.cv.getContext('2d');
+  OV.M = mkCanvas(); OV.m = OV.M.getContext('2d'); OV.T = mkCanvas(); OV.t = OV.T.getContext('2d');
+  const hp = mkCanvas(); hp.width = hp.height = 10; const hc = hp.getContext('2d'); hc.strokeStyle = 'rgba(255,255,255,.16)'; hc.lineWidth = 1.5;
+  hc.beginPath(); hc.moveTo(0, 10); hc.lineTo(10, 0); hc.moveTo(-5, 5); hc.lineTo(5, -5); hc.moveTo(5, 15); hc.lineTo(15, 5); hc.stroke(); OV.hatchSrc = hp;
+  map.on('moveend zoomend resize viewreset', () => { requestRedraw(); loadViewStreets(); });
+  map.on('move', () => { if (performance.now() - OV.last > 90) requestRedraw(); });
+}
+function requestRedraw() { if (OV.raf) return; OV.raf = requestAnimationFrame(() => { OV.raf = 0; try { redraw(); } catch (e) { console.error(e); } }); }
+function sizeCanvas(cv, W, H, dpr) { const w = Math.round(W * dpr), h = Math.round(H * dpr); if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; } }
+function makeV() {
+  const size = map.getSize(), px = Math.round(size.x * OV.pad), py = Math.round(size.y * OV.pad);
+  const z = map.getZoom(), scale = 256 * Math.pow(2, z), pb = map.getPixelBounds();
+  const ox = pb.min.x - px, oy = pb.min.y - py, W = size.x + 2 * px, H = size.y + 2 * py;
+  const ll = (lat, lng) => { const s = Math.sin(lat * DEG); return [(lng + 180) / 360 * scale - ox, (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * scale - oy]; };
+  const xy = (x, y) => ll(y / MLAT + LAT0, x / MLON + LON0);
+  const unll = (X, Y) => { const wx = (X + ox) / scale, wy = (Y + oy) / scale; return [Math.atan(Math.sinh(Math.PI * (1 - 2 * wy))) / DEG, wx * 360 - 180]; };
+  const a = toXY(...unll(0, 0)), b = toXY(...unll(W, H));
+  const c = map.getCenter();
+  return { z, scale, ox, oy, W, H, px, py, ll, xy, unll, vb: [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[0], b[0]), Math.max(a[1], b[1])], clat: c.lat, mpp: lat => Math.cos(lat * DEG) * 40075016.686 / scale };
+}
+const inView = (V, xy, m) => xy[0] > V.vb[0] - m && xy[0] < V.vb[2] + m && xy[1] > V.vb[1] - m && xy[1] < V.vb[3] + m;
+function zonesPath(ctx, V, filter) {
+  const R = zoneR(); ctx.beginPath();
+  for (const st of STATIONS) { if (filter && !filter(st)) continue; if (!inView(V, st.xy, R)) continue; const s = V.ll(st.lat, st.lng), r = R / V.mpp(st.lat); ctx.moveTo(s[0] + r, s[1]); ctx.arc(s[0], s[1], r, 0, 2 * Math.PI); }
+}
+function gridFor(cq, st) {
+  const key = cq.sig + '|' + st.code + '|' + zoneR();
+  const g = GRID.cache.get(key); if (g) return g;
+  if (!GRID.pending.has(key)) { GRID.pending.add(key); GRID.queue.push({ key, cq, st }); if (!GRID.busy) { GRID.busy = true; setTimeout(runGrid, 0); } }
+  return null;
+}
+function buildGrid(cq, st) {
+  const c = cq.grid.cell, R = zoneR() + c, n = Math.ceil(2 * R / c), x0 = st.xy[0] - R, y0 = st.xy[1] + R;
+  const cv = mkCanvas(); cv.width = n; cv.height = n; const ctx = cv.getContext('2d'), img = ctx.createImageData(n, n), D = img.data;
+  for (let j = 0; j < n; j++) { const y = y0 - (j + 0.5) * c; for (let i = 0; i < n; i++) { if (!cq.test([x0 + (i + 0.5) * c, y])) D[(j * n + i) * 4 + 3] = 255; } }
+  ctx.putImageData(img, 0, 0);
+  return { cv, x0, y0, size: n * c };
+}
+function runGrid() {
+  const t0 = performance.now();
+  while (GRID.queue.length && performance.now() - t0 < 30) { const j = GRID.queue.shift(); GRID.cache.set(j.key, buildGrid(j.cq, j.st)); GRID.pending.delete(j.key); }
+  if (GRID.cache.size > 4000) { const keep = [...GRID.cache.entries()].slice(-2000); GRID.cache = new Map(keep); }
+  requestRedraw(); updateChip();
+  if (GRID.queue.length) setTimeout(runGrid, 0); else GRID.busy = false;
+}
+function applyCQ(cq, V) {
+  const m = OV.m, t = OV.t;
+  if (cq.grid) {
+    m.globalCompositeOperation = 'destination-out'; m.imageSmoothingEnabled = true;
+    for (const st of STATIONS) {
+      if (STATS && !STATS.allowed[st.i]) continue;
+      if (!inView(V, st.xy, zoneR())) continue;
+      const g = gridFor(cq, st); if (!g) continue;
+      const a = V.xy(g.x0, g.y0), b = V.xy(g.x0 + g.size, g.y0 - g.size);
+      m.drawImage(g.cv, a[0], a[1], b[0] - a[0], b[1] - a[1]);
+    }
+    m.globalCompositeOperation = 'source-over'; return;
+  }
+  if (!cq.paint) return;
+  t.setTransform(1, 0, 0, 1, 0, 0); t.globalCompositeOperation = 'source-over'; t.clearRect(0, 0, V.W, V.H);
+  t.fillStyle = '#fff'; t.strokeStyle = '#fff';
+  cq.paint(t, V);
+  t.globalCompositeOperation = 'source-over';
+  m.globalCompositeOperation = cq.mode === 'keep' ? 'destination-in' : 'destination-out';
+  m.drawImage(OV.T, 0, 0); m.globalCompositeOperation = 'source-over';
+}
+function redraw() {
+  if (!map) return; OV.last = performance.now();
+  const V = makeV(); OV.V = V; OV.hits = [];
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  sizeCanvas(OV.cv, V.W, V.H, dpr); OV.cv.style.width = V.W + 'px'; OV.cv.style.height = V.H + 'px';
+  sizeCanvas(OV.M, V.W, V.H, 1); sizeCanvas(OV.T, V.W, V.H, 1);
+  const tl = map.containerPointToLayerPoint([-V.px, -V.py]); OV.cv.style.transform = `translate3d(${tl.x}px,${tl.y}px,0)`;
+  const m = OV.m, t = OV.t, c = OV.ctx, allowed = st => !STATS || STATS.allowed[st.i];
+  // 1. mask of the possible area
+  m.setTransform(1, 0, 0, 1, 0, 0); m.globalCompositeOperation = 'source-over'; m.clearRect(0, 0, V.W, V.H);
+  m.fillStyle = '#fff'; zonesPath(m, V, allowed); m.fill();
+  for (const cq of CQS) if (cq.ok && (cq.paint || cq.grid)) applyCQ(cq, V);
+  // 2. compose shading
+  c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, V.W, V.H);
+  const k = S.settings.shade;
+  t.setTransform(1, 0, 0, 1, 0, 0); t.globalCompositeOperation = 'source-over'; t.clearRect(0, 0, V.W, V.H);
+  t.fillStyle = `rgba(21,26,48,${(k * 0.42).toFixed(3)})`; t.fillRect(0, 0, V.W, V.H);
+  t.globalCompositeOperation = 'destination-out'; zonesPath(t, V); t.fill();
+  c.drawImage(OV.T, 0, 0, V.W, V.H);
+  t.globalCompositeOperation = 'source-over'; t.clearRect(0, 0, V.W, V.H); t.fillStyle = '#000'; zonesPath(t, V); t.fill();
+  t.globalCompositeOperation = 'destination-out'; t.drawImage(OV.M, 0, 0);
+  t.globalCompositeOperation = 'source-in'; t.fillStyle = `rgba(21,26,48,${k.toFixed(3)})`; t.fillRect(0, 0, V.W, V.H);
+  if (!OV.hatch) OV.hatch = t.createPattern(OV.hatchSrc, 'repeat');
+  t.globalCompositeOperation = 'source-atop'; t.fillStyle = OV.hatch; t.fillRect(0, 0, V.W, V.H);
+  t.globalCompositeOperation = 'source-over';
+  c.drawImage(OV.T, 0, 0, V.W, V.H);
+  // 3. reference layers
+  drawCategoryLayers(c, V);
+  if (S.layers.borders || S.layers.cats.state) drawBorders(c, V);
+  if (S.layers.lines || S.layers.cats.line) drawLines(c, V);
+  if (S.layers.zones) drawZoneOutlines(c, V);
+  // 4. questions, shapes, stations, labels
+  for (const cq of CQS) drawCQOverlay(c, V, cq, ED && cq.q === ED.q);
+  if (DRAW) drawDrawing(c, V);
+  drawStations(c, V);
+  if (S.layers.labels || S.layers.cats.namelen) drawLabels(c, V);
+}
+function drawZoneOutlines(c, V) {
+  const R = zoneR();
+  for (const st of STATIONS) {
+    if (!inView(V, st.xy, R)) continue;
+    const alive = STATS ? STATS.allowed[st.i] && STATS.pct[st.i] > 0 : true;
+    const s = V.ll(st.lat, st.lng), r = R / V.mpp(st.lat);
+    c.beginPath(); c.arc(s[0], s[1], r, 0, 2 * Math.PI);
+    c.strokeStyle = alive ? 'rgba(21,26,48,.75)' : 'rgba(21,26,48,.22)'; c.lineWidth = alive ? 1.6 : 1;
+    c.setLineDash(alive ? [] : [4, 4]); c.stroke(); c.setLineDash([]);
+  }
+}
+function drawLines(c, V) {
+  const w = V.z < 11 ? 2.2 : V.z < 13 ? 3 : V.z < 15 ? 4 : 5;
+  c.lineCap = 'round';
+  for (const seg of SEGMENTS) {
+    if (!inView(V, seg.a.xy, 3000) && !inView(V, seg.b.xy, 3000)) continue;
+    const a = V.ll(seg.a.lat, seg.a.lng), b = V.ll(seg.b.lat, seg.b.lng), dx = b[0] - a[0], dy = b[1] - a[1], L0 = Math.hypot(dx, dy) || 1, nx = -dy / L0, ny = dx / L0, n = seg.lines.length;
+    seg.lines.forEach((l, i) => {
+      const off = (i - (n - 1) / 2) * w;
+      c.beginPath(); c.moveTo(a[0] + nx * off, a[1] + ny * off); c.lineTo(b[0] + nx * off, b[1] + ny * off);
+      c.strokeStyle = S.ruledLines[l] ? 'rgba(140,140,150,.45)' : LINES[l].c; c.lineWidth = w; c.stroke();
+    });
+  }
+}
+function drawBorders(c, V) {
+  c.save(); c.setLineDash([8, 5]); c.lineWidth = 2.2; c.strokeStyle = 'rgba(103,65,217,.85)';
+  for (const f of DS.border.feats) { c.beginPath(); pathParts(c, V, f.xy, false); c.stroke(); }
+  c.restore();
+  if (V.z >= 10 && V.z <= 14) {
+    c.font = '700 11px system-ui,sans-serif'; c.textAlign = 'center'; c.lineWidth = 3; c.strokeStyle = 'rgba(255,255,255,.9)'; c.fillStyle = 'rgba(103,65,217,.95)';
+    for (const [t, lat, lng] of [['DISTRICT OF COLUMBIA', 38.935, -77.02], ['MARYLAND', 38.99, -76.95], ['VIRGINIA', 38.86, -77.13]]) { const p = V.ll(lat, lng); c.strokeText(t, p[0], p[1]); c.fillText(t, p[0], p[1]); }
+  }
+}
+function catVisible(cat) { return S.layers.cats[cat] || (ED && ED.q.cat === cat && (ED.q.type === 'match' || ED.q.type === 'measure')); }
+function drawCategoryLayers(c, V) {
+  const order = ['ward', 'park', 'golf', 'landmass', 'water', 'street', 'airport', 'mountain', 'amusement', 'zoo', 'aquarium', 'museum', 'cinema', 'hospital', 'library', 'consulate'];
+  for (const cat of order) {
+    if (!catVisible(cat)) continue;
+    const C = CATS[cat], d = cat === 'street' ? null : DS[cat];
+    if (cat === 'street') { drawStreets(c, V); continue; }
+    if (!d || d.status !== 'ready') continue;
+    if (C.type === 'pt') {
+      if (S.layers.voronoi) drawVoronoi(c, V, cat, d);
+      const r = V.z < 11 ? 3.5 : V.z < 14 ? 5 : 6.5;
+      for (const f of d.feats) {
+        if (!inView(V, f.xy, 200)) continue;
+        const s = V.ll(f.ll[0], f.ll[1]);
+        c.beginPath(); c.arc(s[0], s[1], r, 0, 2 * Math.PI); c.fillStyle = C.color; c.fill(); c.lineWidth = 1.5; c.strokeStyle = '#fff'; c.stroke();
+        OV.hits.push({ x: s[0] - V.px, y: s[1] - V.py, r: r + 5, kind: 'poi', cat, f, pri: 1 });
+        if (V.z >= 15 && f.name) labelAt(c, f.name, s[0] + r + 3, s[1] + 4, C.color, 'left');
+      }
+    } else {
+      c.lineWidth = cat === 'ward' ? 2 : 1.2; c.strokeStyle = C.color;
+      c.fillStyle = hexA(C.color, cat === 'ward' ? 0.05 : 0.14);
+      for (const f of d.feats) {
+        if (!bbNear(f.bb, V.vb, 0)) continue;
+        c.beginPath(); pathParts(c, V, f.xy, f.kind === 'pg');
+        if (f.kind === 'pg') c.fill('evenodd'); c.stroke();
+      }
+      if (cat === 'ward' && V.z <= 14) for (const f of d.feats) { const b = f.bb, p = V.xy((b[0] + b[2]) / 2, (b[1] + b[3]) / 2); labelAt(c, f.name, p[0], p[1], C.color, 'center', 13); }
+    }
+  }
+}
+const VOR = new Map();
+function drawVoronoi(c, V, cat, d) {
+  let cells = VOR.get(cat + d.version);
+  if (!cells) { if (d.pts.length > 1500) return; cells = d.pts.map((_, k) => densify(voronoiCell(d.pts, k, 60000), 3000)); VOR.set(cat + d.version, cells); }
+  c.save(); c.strokeStyle = hexA(CATS[cat].color, 0.55); c.lineWidth = 1; c.setLineDash([3, 3]);
+  cells.forEach(cell => { if (!cell.length) return; c.beginPath(); pathParts(c, V, [cell], true); c.stroke(); });
+  c.restore();
+}
+function drawStreets(c, V) {
+  if (V.z < 15) return;
+  c.strokeStyle = 'rgba(232,89,12,.8)'; c.lineWidth = 2.5; c.lineCap = 'round';
+  for (const f of VSTREETS.feats.values()) {
+    if (!bbNear(f.bb, V.vb, 0)) continue;
+    c.beginPath(); pathParts(c, V, f.xy, false); c.stroke();
+    const p = f.xy[0], mid = p[Math.floor(p.length / 2)], s = V.xy(mid[0], mid[1]);
+    OV.hits.push({ x: s[0] - V.px, y: s[1] - V.py, r: 14, kind: 'street', f, pri: 0 });
+  }
+}
+function hexA(hex, a) { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`; }
+function labelAt(c, text, x, y, color, align, size) {
+  c.font = `650 ${size || 12}px system-ui,-apple-system,sans-serif`; c.textAlign = align || 'left'; c.lineJoin = 'round';
+  c.lineWidth = 3.5; c.strokeStyle = 'rgba(255,255,255,.95)'; c.strokeText(text, x, y); c.fillStyle = color || '#151a30'; c.fillText(text, x, y);
+}
+function drawStations(c, V) {
+  const big = V.z >= 12;
+  for (const st of STATIONS) {
+    if (!inView(V, st.xy, 300)) continue;
+    const s = V.ll(st.lat, st.lng), alive = STATS ? STATS.allowed[st.i] && STATS.pct[st.i] > 0 : true;
+    const r = alive ? (big ? 5.5 : 4) : (big ? 4 : 2.8);
+    c.beginPath(); c.arc(s[0], s[1], r, 0, 2 * Math.PI);
+    c.fillStyle = alive ? '#fff' : '#a3a8ba'; c.fill(); c.lineWidth = alive ? 2.2 : 1.2; c.strokeStyle = alive ? '#151a30' : '#fff'; c.stroke();
+    OV.hits.push({ x: s[0] - V.px, y: s[1] - V.py, r: Math.max(12, r + 6), kind: 'st', st, pri: 2 });
+  }
+}
+function drawLabels(c, V) {
+  const showLen = S.layers.cats.namelen;
+  if (V.z < 12.5 && !showLen) return;
+  if (V.z < 11) return;
+  const boxes = [], pad = 3;
+  const list = STATIONS.filter(st => inView(V, st.xy, 500)).sort((a, b) => (STATS ? STATS.pct[b.i] - STATS.pct[a.i] : 0));
+  c.font = '650 12px system-ui,-apple-system,sans-serif';
+  for (const st of list) {
+    const alive = STATS ? STATS.allowed[st.i] && STATS.pct[st.i] > 0 : true;
+    const txt = (V.z < 14 ? stationShort(st.name) : st.name) + (showLen ? ` (${nameLen(st.name)})` : '');
+    const s = V.ll(st.lat, st.lng), w = c.measureText(txt).width, x = s[0] + 9, y = s[1] + 4;
+    const box = [x - pad, y - 12 - pad, x + w + pad, y + 3 + pad];
+    if (boxes.some(b => !(box[2] < b[0] || box[0] > b[2] || box[3] < b[1] || box[1] > b[3]))) continue;
+    boxes.push(box); labelAt(c, txt, x, y, alive ? '#151a30' : '#8b91a8');
+  }
+}
+function pin(c, V, ll, color, label, big) {
+  const s = V.ll(ll[0], ll[1]), r = big ? 9 : 7.5;
+  c.beginPath(); c.arc(s[0], s[1], r, 0, 2 * Math.PI); c.fillStyle = color; c.fill(); c.lineWidth = 2.5; c.strokeStyle = '#fff'; c.stroke();
+  if (label != null) { c.font = '800 10px system-ui,sans-serif'; c.textAlign = 'center'; c.fillStyle = '#fff'; c.fillText(String(label), s[0], s[1] + 3.5); }
+  return s;
+}
+function drawCQOverlay(c, V, cq, isDraft) {
+  const q = cq.q; if (!q) return;
+  if (q.type === 'custom') {
+    if (!cq.ok) return; c.save(); c.strokeStyle = '#6741d9'; c.lineWidth = 2; c.setLineDash([6, 4]);
+    if (q.shape === 'circle') { const s = V.ll(q.c[0], q.c[1]); c.beginPath(); c.arc(s[0], s[1], q.r / V.mpp(q.c[0]), 0, 2 * Math.PI); c.stroke(); }
+    else { c.beginPath(); pathParts(c, V, [cq.ring], true); c.stroke(); }
+    c.restore(); return;
+  }
+  const T = QT[q.type], col = T.hex, num = isDraft ? '?' : (S.questions.findIndex(x => x.id === q.id) + 1);
+  c.save(); c.lineWidth = isDraft ? 3 : 2; c.strokeStyle = col;
+  if (q.type === 'radar' && cq.ok) { const sh = cq.shapes[0], s = V.xy(sh.circle[0], sh.circle[1]); c.setLineDash(isDraft ? [] : [7, 5]); c.beginPath(); c.arc(s[0], s[1], sh.r / V.mpp(sh.lat), 0, 2 * Math.PI); c.stroke(); }
+  if (q.type === 'thermo') {
+    if (q.a && q.b) {
+      const a = V.ll(q.a[0], q.a[1]), b = V.ll(q.b[0], q.b[1]);
+      c.setLineDash([]); c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(b[0], b[1]); c.stroke();
+      const ang = Math.atan2(b[1] - a[1], b[0] - a[0]); c.beginPath(); c.moveTo(b[0], b[1]); c.lineTo(b[0] - 12 * Math.cos(ang - 0.45), b[1] - 12 * Math.sin(ang - 0.45)); c.lineTo(b[0] - 12 * Math.cos(ang + 0.45), b[1] - 12 * Math.sin(ang + 0.45)); c.closePath(); c.fillStyle = col; c.fill();
+      if (cq.bisector) { c.setLineDash([10, 6]); c.lineWidth = 1.6; c.beginPath(); pathParts(c, V, [cq.bisector], false); c.stroke(); }
+    }
+    if (q.a) { const s = V.ll(q.a[0], q.a[1]); c.setLineDash([]); c.beginPath(); c.arc(s[0], s[1], 7, 0, 2 * Math.PI); c.fillStyle = '#fff'; c.fill(); c.lineWidth = 3; c.stroke(); }
+    if (q.b) pin(c, V, q.b, col, num, isDraft);
+  }
+  if ((q.type === 'match' || q.type === 'measure') && cq.ok) {
+    if (cq.cell && isDraft) { c.setLineDash([6, 4]); c.beginPath(); pathParts(c, V, [cq.cell], true); c.stroke(); }
+    if (cq.highlight && (isDraft || V.z >= 13)) {
+      c.setLineDash([]); c.lineWidth = isDraft ? 3 : 2;
+      for (const f of cq.highlight.feats) {
+        if (f.kind === 'pt') { const s = V.ll(f.ll[0], f.ll[1]); c.beginPath(); c.arc(s[0], s[1], 10, 0, 2 * Math.PI); c.stroke(); if (isDraft) labelAt(c, f.name || '', s[0] + 13, s[1] + 4, col); }
+        else if (bbNear(f.bb, V.vb, 0)) { c.beginPath(); pathParts(c, V, f.xy, f.kind === 'pg'); c.stroke(); }
+      }
+    }
+    if (q.type === 'measure' && q.cat === 'custom' && q.t) { const s = V.ll(q.t[0], q.t[1]); c.beginPath(); c.arc(s[0], s[1], 8, 0, 2 * Math.PI); c.fillStyle = '#fff'; c.fill(); c.stroke(); }
+  }
+  if (q.p) pin(c, V, q.p, col, num, isDraft);
+  c.restore();
+}
+
+/* ------------------------------ MAP INTERACTION ------------------------------ */
+let PICK = null, DRAW = null, draftMarkers = {};
+function hitAt(pt) {
+  let best = null, bd = Infinity;
+  for (const h of OV.hits) { const d = Math.hypot(h.x - pt.x, h.y - pt.y); if (d <= h.r && (d - h.pri * 4) < bd) { bd = d - h.pri * 4; best = h; } }
+  return best;
+}
+function onMapClick(e) {
+  const ll = [e.latlng.lat, e.latlng.lng];
+  if (PICK) { const cb = PICK.cb; endPick(); cb(ll); return; }
+  if (DRAW) { drawClick(ll); return; }
+  const h = hitAt(e.containerPoint);
+  if (h && h.kind === 'st') return openStationPopup(h.st);
+  if (h && (h.kind === 'poi' || h.kind === 'street')) { const C = CATS[h.cat] || CATS.street; L.popup({ maxWidth: 260 }).setLatLng(h.kind === 'poi' ? h.f.ll : ll).setContent(`<div class="pop"><b>${esc(h.f.name || '(unnamed)')}</b><div class="muted">${esc(C.label)}</div></div>`).openOn(map); return; }
+  // polygons (parks, wards, islands)
+  const p = toXY(ll[0], ll[1]);
+  for (const cat of ['park', 'golf', 'landmass', 'ward']) {
+    if (!catVisible(cat) || !DS[cat] || DS[cat].status !== 'ready') continue;
+    const k = DS[cat].index.containing(p);
+    if (k >= 0) { const f = DS[cat].feats[k]; L.popup().setLatLng(ll).setContent(`<div class="pop"><b>${esc(f.name || '(unnamed)')}</b><div class="muted">${esc(CATS[cat].label)}</div></div>`).openOn(map); return; }
+  }
+}
+function onMouseMove(e) {
+  const tip = $('#tip'); if (isMobile()) return;
+  const h = hitAt(e.containerPoint);
+  if (!h) { tip.style.display = 'none'; return; }
+  tip.textContent = h.kind === 'st' ? h.st.name : (h.f.name || '(unnamed)');
+  tip.style.left = e.containerPoint.x + 'px'; tip.style.top = e.containerPoint.y + 'px'; tip.style.display = 'block';
+}
+function openStationPopup(st) {
+  const i = st.i, allowed = STATS ? STATS.allowed[i] : 1, pct = STATS ? STATS.pct[i] : 1, o = S.stationOverride[st.code];
+  const dots = st.lines.map(l => `<i style="background:${LINES[l].c}" title="${LINES[l].n}"></i>`).join('');
+  const html = `<div class="pop"><b>${esc(st.name)}</b><div style="margin:4px 0" class="dots">${dots} <span class="muted small">&nbsp;${st.lines.map(l => LINES[l].n).join(' · ')}</span></div>
+    <div class="small">${STATE_NAMES[stateOf(st.xy)]} · name length <b>${nameLen(st.name)}</b></div>
+    <div class="small" style="margin-top:4px">${allowed ? (pct > 0 ? `<b style="color:var(--ok)">${Math.max(1, Math.round(pct * 100))}%</b> of this zone is still possible` : '<b style="color:var(--bad)">Zone ruled out</b> by questions') : '<b style="color:var(--bad)">Station ruled out</b>'}</div>
+    <div class="btnrow"><button class="btn sm" data-act="st-toggle" data-code="${st.code}">${o === 'out' || !allowed ? 'Restore station' : 'Rule out station'}</button>
+    ${ED ? `<button class="btn sm pri" data-act="st-seeker" data-code="${st.code}">Use as location</button>` : `<button class="btn sm" data-act="st-zoom" data-code="${st.code}">Zoom in</button>`}</div></div>`;
+  L.popup({ maxWidth: 280 }).setLatLng(st.ll).setContent(html).openOn(map);
+}
+function startPick(msg, cb) {
+  PICK = { cb }; map.closePopup();
+  const pb = $('#pickbar'); pb.hidden = false;
+  pb.innerHTML = `<div class="msg"><b>Tap the map</b>${esc(msg)}</div><button class="btn sm" data-act="pick-gps">◎ Use GPS</button><button class="btn sm" data-act="pick-cancel">Cancel</button>`;
+  $('#map').classList.add('picking'); if (isMobile()) setSheet('min');
+}
+function endPick() { PICK = null; $('#pickbar').hidden = true; $('#map').classList.remove('picking'); if (isMobile() && ED) setSheet('mid'); }
+function gps(cb) {
+  if (!navigator.geolocation) return toast('GPS is not available in this browser.');
+  toast('Getting your location…');
+  navigator.geolocation.getCurrentPosition(p => cb([p.coords.latitude, p.coords.longitude], p.coords.accuracy), e => toast('Location unavailable: ' + e.message), { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 });
+}
+let meMarker = null;
+function locateMe() { gps((ll, acc) => { if (meMarker) meMarker.remove(); meMarker = L.marker(ll, { icon: L.divIcon({ className: 'hs-pin', html: '<div style="--c:#1c7ed6;border-radius:50%;transform:none;width:18px;height:18px"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }) }).addTo(map); map.setView(ll, Math.max(map.getZoom(), 15)); toast(`You are here (±${Math.round(acc)} m)`); }); }
+
+// custom drawing
+function startDraw(kind) {
+  DRAW = { kind, pts: [], c: null, mode: 'remove' }; map.closePopup(); renderDrawBar(); $('#map').classList.add('picking'); if (isMobile()) setSheet('min'); requestRedraw();
+}
+function renderDrawBar() {
+  const pb = $('#pickbar'); pb.hidden = false;
+  const d = DRAW, msg = d.kind === 'poly' ? `Tap to add corners (${d.pts.length} so far).` : (d.c ? 'Now tap a point on the edge of the circle.' : 'Tap the circle\'s center.');
+  pb.innerHTML = `<div class="msg"><b>Draw ${d.kind === 'poly' ? 'an area' : 'a circle'}</b>${msg}</div>
+    <div class="seg" style="min-width:150px"><button class="${d.mode === 'remove' ? 'on n' : ''}" data-act="draw-mode" data-val="remove">Rule out</button><button class="${d.mode === 'keep' ? 'on y' : ''}" data-act="draw-mode" data-val="keep">Keep only</button></div>
+    ${d.kind === 'poly' ? `<button class="btn sm" data-act="draw-undo" ${d.pts.length ? '' : 'disabled'}>Undo</button><button class="btn sm pri" data-act="draw-done" ${d.pts.length >= 3 ? '' : 'disabled'}>Finish</button>` : ''}
+    <button class="btn sm" data-act="draw-cancel">Cancel</button>`;
+}
+function drawClick(ll) {
+  const d = DRAW;
+  if (d.kind === 'poly') { d.pts.push(ll); renderDrawBar(); requestRedraw(); return; }
+  if (!d.c) { d.c = ll; renderDrawBar(); requestRedraw(); return; }
+  const r = dist(toXY(...d.c), toXY(...ll)); finishDraw({ shape: 'circle', c: d.c, r });
+}
+function finishDraw(shape) {
+  const d = DRAW; if (!d) return;
+  if (!shape) { if (d.pts.length < 3) return; shape = { shape: 'poly', pts: d.pts }; }
+  const n = S.customs.length + 1;
+  S.customs.push(Object.assign({ id: uid(), mode: d.mode, enabled: true, label: (shape.shape === 'circle' ? 'Circle ' : 'Area ') + n }, shape));
+  cancelDraw(); save(); recompute(); renderDraw(); toast('Custom shape added.');
+}
+function cancelDraw() { DRAW = null; $('#pickbar').hidden = true; $('#map').classList.remove('picking'); requestRedraw(); }
+function drawDrawing(c, V) {
+  const d = DRAW; c.save(); c.strokeStyle = '#6741d9'; c.fillStyle = 'rgba(103,65,217,.15)'; c.lineWidth = 2.5;
+  if (d.kind === 'poly' && d.pts.length) { c.beginPath(); d.pts.forEach((p, i) => { const s = V.ll(p[0], p[1]); i ? c.lineTo(s[0], s[1]) : c.moveTo(s[0], s[1]); }); if (d.pts.length > 2) { c.closePath(); c.fill(); } c.stroke(); d.pts.forEach(p => { const s = V.ll(p[0], p[1]); c.beginPath(); c.arc(s[0], s[1], 5, 0, 7); c.fillStyle = '#6741d9'; c.fill(); }); }
+  if (d.kind === 'circle' && d.c) { const s = V.ll(d.c[0], d.c[1]); c.beginPath(); c.arc(s[0], s[1], 6, 0, 7); c.fillStyle = '#6741d9'; c.fill(); }
+  c.restore();
+}
+
+/* ------------------------------ PANEL RENDERING ------------------------------ */
+function renderSummary() {
+  const st = STATS || { zones: 98, areaMi2: 0 }, tot = STATIONS.length, prev = ED && BASE_STATS;
+  $('#summary').innerHTML = `<div><div class="big">${st.zones}<span style="font-size:14px;opacity:.6;font-weight:600"> / ${tot}</span>${ED ? '<span class="tag">PREVIEW</span>' : ''}</div><div class="lbl">zones possible</div></div>
+    <div><div class="big">${st.areaMi2.toFixed(st.areaMi2 < 10 ? 2 : 1)}</div><div class="lbl">sq mi left</div></div>
+    <div class="bar" title="${Math.round(st.zones / tot * 100)}% of zones"><i style="width:${(st.zones / tot * 100).toFixed(1)}%"></i></div>`;
+  updateChip();
+}
+function updateChip() {
+  const st = STATS; if (!st) return;
+  const busy = GRID.queue.length || STREETS.queue.length || STREETS.busy || Object.values(LOADING).some(Boolean);
+  const html = `${busy ? '<span class="spin"></span>' : ''}${st.zones} zones · ${st.areaMi2.toFixed(st.areaMi2 < 10 ? 2 : 1)} mi² left${ED ? ' (preview)' : ''}`;
+  const chip = $('#mapchip'); if (chip.innerHTML !== html) chip.innerHTML = html; chip.classList.toggle('busy', !!busy);
+}
+function qTitle(q) {
+  const T = QT[q.type];
+  if (q.type === 'radar') return `${T.n} · ${q.distMi} mi`;
+  if (q.type === 'thermo') return `${T.n} · ${q.distMi} mi`;
+  return `${T.n} · ${(CATS[q.cat] || {}).label || '—'}`;
+}
+function ansChip(q) {
+  const m = { yes: ['Yes', 'yes'], no: ['No', 'no'], hotter: ['Hotter', 'yes'], colder: ['Colder', 'no'], closer: ['Closer', 'yes'], further: ['Further', 'no'] }[q.answer] || ['—', ''];
+  if (q.type === 'radar') m[0] = q.answer === 'yes' ? 'Within' : 'Not within';
+  if (q.type === 'match') m[0] = q.answer === 'yes' ? 'Same' : 'Different';
+  return `<span class="ans ${m[1]}">${m[0]}</span>`;
+}
+function renderQList() {
+  const pane = $('#paneQ');
+  const cards = Object.entries(QT).map(([k, T]) => `<button class="qadd" data-act="add" data-type="${k}" style="--c:${T.hex}"><b><span class="ic">${T.ic}</span>${T.n}</b><span>${esc(T.ask)}</span></button>`).join('');
+  const items = S.questions.map((q, i) => {
+    const cq = CQS.find(c => c.q === q) || (q.enabled === false ? null : null), T = QT[q.type];
+    let sub = '';
+    if (q.enabled === false) sub = '<span class="badge">Hidden — not applied</span>';
+    else if (cq && cq.pending) sub = `<span class="badge"><span class="spin"></span>${esc(cq.msg)}</span>`;
+    else if (cq && !cq.ok) sub = `<span class="badge err">${esc(cq.msg || 'Incomplete')}</span>`;
+    else if (cq) sub = esc(cq.info.text || '');
+    return `<div class="qitem ${q.enabled === false ? 'off' : ''}" style="--c:${T.hex}"><div class="top"><span class="num">${i + 1}</span><span class="t">${esc(qTitle(q))}</span>${ansChip(q)}</div>
+      <div class="sub">${sub}</div>
+      <div class="acts"><button class="btn sm" data-act="edit" data-id="${q.id}">Edit</button><button class="btn sm" data-act="flip" data-id="${q.id}" title="Switch the answer">⇄ Flip answer</button>
+      <button class="btn sm" data-act="toggle" data-id="${q.id}">${q.enabled === false ? 'Apply' : 'Hide'}</button><button class="btn sm" data-act="focus" data-id="${q.id}" title="Show on map">⌖</button><button class="btn sm danger" data-act="del" data-id="${q.id}" aria-label="Delete">✕</button></div></div>`;
+  }).join('');
+  pane.innerHTML = `<h3>Ask a question</h3><div class="addgrid">${cards}</div>
+    <h3>Asked so far ${S.questions.length ? `(${S.questions.length})` : ''}</h3>
+    ${items || `<p class="muted">No questions yet. Pick a card above, set where the seeker is, and choose the hider's answer — the map shades everything that's ruled out. Photo and Tentacle questions don't change the map, so they're not here.</p>`}
+    ${S.questions.length ? '<p class="muted small">Tip: “Hide” temporarily removes a question so you can see what it changed.</p>' : ''}`;
+  $('.tabs [data-tab="q"]').innerHTML = `Questions${S.questions.length ? `<span class="n">${S.questions.length}</span>` : ''}`;
+}
+let zoneFilter = { q: '', show: 'possible' };
+function renderZones() {
+  const pane = $('#paneZ'); if (pane.hidden && !pane.dataset.init) return; pane.dataset.init = 1;
+  const keepFocus = document.activeElement && document.activeElement.id === 'stsearch';
+  const chips = LINE_ORDER.map(l => `<button class="lchip ${S.ruledLines[l] ? 'off' : ''}" style="--lc:${LINES[l].c}" data-act="rline" data-l="${l}"><i></i>${LINES[l].n}</button>`).join('');
+  const rows = STATIONS.map(st => ({ st, pct: STATS ? STATS.pct[st.i] : 1, ok: STATS ? STATS.allowed[st.i] : 1 }))
+    .filter(r => (zoneFilter.show === 'all' || r.pct > 0) && (!zoneFilter.q || r.st.name.toLowerCase().includes(zoneFilter.q.toLowerCase())))
+    .sort((a, b) => b.pct - a.pct || a.st.name.localeCompare(b.st.name))
+    .map(({ st, pct, ok }) => `<div class="strow ${pct > 0 ? '' : 'dead'}"><span class="dots">${st.lines.map(l => `<i style="background:${LINES[l].c}"></i>`).join('')}</span>
+      <span class="nm" data-act="st-fly" data-code="${st.code}" title="Show on map">${esc(st.name)}</span>
+      <span class="pbar"><i style="width:${(pct * 100).toFixed(0)}%"></i></span><span class="pct">${pct > 0 ? Math.max(1, Math.round(pct * 100)) + '%' : '—'}</span>
+      <button class="btn sm" data-act="st-toggle" data-code="${st.code}" title="${ok ? 'Rule out' : 'Restore'}">${ok ? '✕' : '↺'}</button></div>`).join('');
+  pane.innerHTML = `<h3>Rule out Metro lines</h3><div class="linechips">${chips}</div>
+    <div class="row small"><label for="lmode" class="muted">A shared station is ruled out when</label><select id="lmode" class="sm" data-act="lmode"><option value="all" ${S.lineMode === 'all' ? 'selected' : ''}>all its lines are ruled out</option><option value="any" ${S.lineMode === 'any' ? 'selected' : ''}>any of its lines is ruled out</option></select></div>
+    <h3>Stations ${STATS ? `<span class="muted" style="text-transform:none;letter-spacing:0;font-weight:600">· ${STATS.zones} possible</span>` : ''}</h3>
+    <div class="row" style="margin:0 0 8px"><input type="search" id="stsearch" placeholder="Search stations" value="${esc(zoneFilter.q)}" style="flex:1"><select class="sm" data-act="stshow"><option value="possible" ${zoneFilter.show === 'possible' ? 'selected' : ''}>Possible</option><option value="all" ${zoneFilter.show === 'all' ? 'selected' : ''}>All 98</option></select></div>
+    ${rows || '<p class="muted">No stations match.</p>'}
+    ${Object.keys(S.stationOverride).length ? '<p><button class="btn sm" data-act="st-reset">Clear manual station changes</button></p>' : ''}`;
+  if (keepFocus) { const i = $('#stsearch'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
+}
+function dsStatus(cat) {
+  const C = CATS[cat]; if (C.bundled) return `${DS[cat].feats.length}`;
+  if (cat === 'street') return 'zoom in to see';
+  if (C.type === 'station' || C.type === 'state') return '';
+  const d = DS[cat]; if (!d) return 'loads on demand';
+  if (d.status === 'loading') return '<span class="spin"></span>loading';
+  if (d.status === 'error') return `<button class="btn sm" data-act="retry" data-cat="${cat}">Retry</button>`;
+  return `${d.feats.length}`;
+}
+function renderLayers() {
+  const pane = $('#paneL'); if (!pane) return;
+  const bm = Object.entries(BASEMAPS).map(([k, b]) => `<label><input type="radio" name="bm" data-act="basemap" value="${k}" ${S.settings.basemap === k ? 'checked' : ''}> ${esc(b.n)}</label>`).join('');
+  const ov = [['zones', 'Hiding-zone circles (¼ mi)', '#151a30'], ['lines', 'Metro lines', '#BF0D3E'], ['labels', 'Station names', '#4a5170'], ['borders', 'DC / MD / VA borders', '#6741d9']]
+    .map(([k, n, c]) => `<div class="lrow"><label><span class="sw" style="background:${c}"></span>${n}</label><input type="checkbox" class="toggle" data-act="ov" data-k="${k}" ${S.layers[k] ? 'checked' : ''}></div>`).join('');
+  const cats = MATCH_CATS.map(cat => { const C = CATS[cat]; return `<div class="lrow"><label><span class="sw" style="background:${C.color || '#151a30'}">${C.icon.length < 3 ? C.icon : ''}</span>${esc(C.label)}</label><span class="st">${dsStatus(cat)}</span><input type="checkbox" class="toggle" data-act="catl" data-cat="${cat}" ${S.layers.cats[cat] ? 'checked' : ''}></div>`; }).join('');
+  pane.innerHTML = `<h3>Base map</h3><div class="radios">${bm}</div>
+    <h3>Overlays</h3>${ov}
+    <h3>Matching & measuring places</h3>${cats}
+    <div class="lrow"><label><span class="sw" style="background:#8b91a8">⋰</span>Nearest-place boundaries for point layers</label><input type="checkbox" class="toggle" data-act="ov" data-k="voronoi" ${S.layers.voronoi ? 'checked' : ''}></div>
+    <div class="lrow"><label><span class="sw" style="background:#1971c2">≈</span>Bodies of water (measuring)</label><span class="st">${dsStatus('water')}</span><input type="checkbox" class="toggle" data-act="catl" data-cat="water" ${S.layers.cats.water ? 'checked' : ''}></div>
+    <p class="muted small" style="margin-top:12px">Places come from OpenStreetMap and load only when you turn a layer on or ask about it; they're cached on this device for 3 weeks. Transit Line, Name Length and State/District show the Metro lines, name lengths and borders. Wards come from DC GIS.</p>`;
+}
+function renderDraw() {
+  const pane = $('#paneD');
+  const items = S.customs.map(c => `<div class="citem"><span class="ans ${c.mode === 'keep' ? 'yes' : 'no'}">${c.mode === 'keep' ? 'Keep only' : 'Ruled out'}</span><span class="t">${esc(c.label)}${c.shape === 'circle' ? ` <span class="muted small">r = ${fmtDist(c.r)}</span>` : ''}</span>
+    <button class="btn sm" data-act="cflip" data-id="${c.id}" title="Switch rule out / keep only">⇄</button><button class="btn sm" data-act="ctoggle" data-id="${c.id}">${c.enabled === false ? 'Apply' : 'Hide'}</button><button class="btn sm danger" data-act="cdel" data-id="${c.id}">✕</button></div>`).join('');
+  pane.innerHTML = `<h3>Add your own geometry</h3>
+    <p class="muted small">For anything the built-in questions don't cover — a house rule, a photo you've placed, a neighborhood you've cleared. Each shape either <b>rules out</b> its inside or <b>keeps only</b> its inside.</p>
+    <div class="btnrow"><button class="btn" data-act="draw" data-kind="poly">✎ Draw an area</button><button class="btn" data-act="draw" data-kind="circle">◯ Draw a circle</button></div>
+    <h3>Shapes ${S.customs.length ? `(${S.customs.length})` : ''}</h3>${items || '<p class="muted">None yet.</p>'}`;
+}
+function renderGame() {
+  const s = S.settings;
+  const opt = (v, cur, label) => `<option value="${v}" ${String(cur) === String(v) ? 'selected' : ''}>${label}</option>`;
+  $('#paneG').innerHTML = `<h3>House rules</h3>
+    <div class="field"><label>Hiding-zone radius</label><select data-act="set" data-k="radiusMi">${opt(0.25, s.radiusMi, '¼ mile (standard)')}${opt(0.5, s.radiusMi, '½ mile')}${opt(0.125, s.radiusMi, '⅛ mile')}</select></div>
+    <div class="field"><label>Station's name length counts</label><select data-act="set" data-k="nameRule">${opt('alnum', s.nameRule, 'Letters and digits')}${opt('letters', s.nameRule, 'Letters only')}${opt('nospace', s.nameRule, 'Every character except spaces')}${opt('all', s.nameRule, 'Every character incl. spaces')}</select>
+      <select data-act="set" data-k="nameSource" style="margin-top:6px">${opt('full', s.nameSource, 'of the full WMATA name (e.g. “Woodley Park-Zoo/Adams Morgan”)')}${opt('short', s.nameSource, 'of the first part only (e.g. “Woodley Park”)')}</select></div>
+    <div class="lrow"><label>Treat NW/NE/SW/SE versions of a street as the same street</label><input type="checkbox" class="toggle" data-act="setb" data-k="quadrants" ${s.quadrants ? 'checked' : ''}></div>
+    <div class="field" style="margin-top:12px"><label>Shading strength</label><input type="range" min="0.25" max="0.85" step="0.05" value="${s.shade}" data-act="shade" style="width:100%"></div>
+    <h3>Share & save</h3>
+    <p class="muted small">Everything saves on this device automatically. Send the link to teammates to load the same questions.</p>
+    <div class="btnrow"><button class="btn" data-act="share">🔗 Copy share link</button><button class="btn" data-act="export">Export</button><button class="btn" data-act="import">Import</button></div>
+    <h3>New game</h3><div class="btnrow"><button class="btn danger" data-act="reset">Clear questions, shapes & rule-outs</button></div>
+    <h3>Google Maps base map</h3>
+    <p class="muted small">Google requires an API key with the Map Tiles API enabled (billing on). Paste it here, then choose “Google Maps” in Layers. The key stays on this device.</p>
+    <div class="row"><input type="text" id="gkey" placeholder="AIza…" value="${esc(s.googleKey)}" style="flex:1"><button class="btn sm" data-act="gkey">Save</button></div>
+    <h3>Data</h3><div class="btnrow"><button class="btn sm" data-act="clearcache">Clear cached map data</button></div>
+    <h3>How it works</h3><ul class="help small">
+      <li>Every Metro station has a hiding zone of the radius above. The hider is somewhere inside one of them.</li>
+      <li>Each answer keeps or removes part of the map. Radar is a circle, Thermometer splits the map halfway between your start and end, Measuring draws a buffer at your distance from the nearest place, and Matching keeps the area whose nearest place is the same as yours.</li>
+      <li>Matching on streets, parks, golf courses and wards is computed on a 10–15 m grid inside each zone (their “nearest” areas have no simple shape). Everything else is exact.</li>
+      <li>Transit Line and Name Length work per station; State, Landmass and Ward use boundaries.</li>
+      <li>The DC–Virginia border follows the Potomac shoreline approximately (within ~100 m, mostly over water).</li>
+      <li>Map data © OpenStreetMap contributors (ODbL); wards © DC GIS; station locations from WMATA.</li></ul>`;
+}
+
+/* ------------------------------ EDITOR ------------------------------ */
+const NEW_Q = {
+  radar: () => ({ type: 'radar', p: null, distMi: 1, answer: 'yes' }),
+  thermo: () => ({ type: 'thermo', a: null, b: null, distMi: 0.5, answer: 'hotter' }),
+  measure: () => ({ type: 'measure', p: null, cat: 'hospital', answer: 'closer' }),
+  match: () => ({ type: 'match', p: null, cat: 'line', answer: 'yes' })
+};
+let lastSeeker = null;
+function openEditor(q, orig) {
+  ED = { q, orig: orig || null, cq: null };
+  if (!orig && q.type !== 'thermo' && lastSeeker && Date.now() - lastSeeker.t < 30 * 60000) { q.p = lastSeeker.ll.slice(); ED.prefilled = true; }
+  const ed = $('#editor'), sm = $('#summary'); ed.style.top = (sm.offsetTop + sm.offsetHeight + 6) + 'px'; ed.hidden = false; map.closePopup();
+  renderEditor(); syncDraftMarkers(); recompute();
+  if (isMobile()) setSheet('mid');
+  if (!orig) { if (q.type === 'thermo') pickField('a'); else if (!q.p) pickField('p'); }
+}
+function closeEditor() { ED = null; $('#editor').hidden = true; clearDraftMarkers(); if (PICK) endPick(); recompute(); }
+function locField(label, field, help) {
+  const v = ED.q[field];
+  const near = v ? nearestStation(toXY(v[0], v[1])) : null;
+  return `<div class="field"><label>${label}</label><div class="loc ${v ? 'set' : ''}">
+    <div class="locval">${v ? `${v[0].toFixed(5)}, ${v[1].toFixed(5)}<small>${fmtDist(dist(near.xy, toXY(v[0], v[1])))} from ${esc(near.name)} · ${STATE_NAMES[stateOf(toXY(v[0], v[1]))]}</small>` : `<span class="muted">Not set${help ? ' — ' + help : ''}</span>`}</div>
+    ${v && field === 'p' && ED.prefilled ? '<div class="small" style="color:var(--thermo);margin:-2px 0 6px">Reusing your last seeker location — move it if you have.</div>' : ''}
+    <div class="btnrow"><button class="btn sm ${v ? '' : 'pri'}" data-act="pick" data-field="${field}">📍 ${v ? 'Move' : 'Tap map'}</button><button class="btn sm" data-act="gps" data-field="${field}">◎ GPS</button>
+    <select class="sm" data-act="stloc" data-field="${field}" aria-label="Snap to a station"><option value="">At a station…</option>${STATIONS.slice().sort((a, b) => a.name.localeCompare(b.name)).map(s => `<option value="${s.code}">${esc(s.name)}</option>`).join('')}</select></div></div></div>`;
+}
+function seg(act, opts, cur) { return `<div class="seg">${opts.map(([v, l, cls]) => `<button class="${cur === v ? 'on ' + cls : ''}" data-act="${act}" data-val="${v}">${l}</button>`).join('')}</div>`; }
+function chips(act, opts, isOn) { return `<div class="chips">${opts.map(([v, l]) => `<button class="chip ${isOn(v) ? 'on' : ''}" data-act="${act}" data-val="${v}">${l}</button>`).join('')}</div>`; }
+function catSelect(list, cur) {
+  return `<select data-act="cat" style="width:100%">${list.map(c => `<option value="${c}" ${c === cur ? 'selected' : ''}>${esc(CATS[c].label)}</option>`).join('')}</select>`;
+}
+function renderEditor() {
+  const q = ED.q, T = QT[q.type];
+  let body = '';
+  if (q.type === 'radar') {
+    const custom = !RADAR_D.includes(+q.distMi) || q.customDist;
+    body += locField('Seeker location', 'p', 'where you are asking from');
+    body += `<div class="field"><label>Radar distance</label>${chips('dist', [...RADAR_D.map(d => [d, d + ' mi']), ['custom', 'Custom…']], v => v === 'custom' ? custom : (!custom && +q.distMi === v))}
+      ${custom ? `<div class="row"><input type="number" id="edDist" min="0.01" step="0.05" value="${q.distMi}" style="width:110px"><span class="muted">miles</span></div>` : ''}</div>`;
+    body += `<div class="field"><label>Hider's answer</label>${seg('ans', [['yes', 'Yes — within', 'y'], ['no', 'No', 'n']], q.answer)}</div>`;
+  } else if (q.type === 'thermo') {
+    body += locField('Start — where the seeker began', 'a');
+    body += locField('End — where the seeker is now', 'b');
+    body += `<div class="field"><label>Card distance</label>${chips('dist', THERMO_D.map(d => [d, d + ' mi']), v => +q.distMi === v)}</div>`;
+    body += `<div class="field"><label>Hider's answer</label>${seg('ans', [['hotter', '🔥 Hotter', 'y'], ['colder', '❄ Colder', 'n']], q.answer)}</div>`;
+  } else if (q.type === 'measure') {
+    body += locField('Seeker location', 'p');
+    body += `<div class="field"><label>Closer to or further from the nearest…</label>${catSelect(MEASURE_CATS, q.cat)}</div>`;
+    if (q.cat === 'custom') body += locField('Landmark location', 't') + `<div class="field"><label>Landmark name (optional)</label><input type="text" id="edTName" value="${esc(q.tName || '')}" placeholder="e.g. Washington Monument" style="width:100%"></div>`;
+    else body += `<div class="field" id="edTarget"></div>`;
+    body += `<div class="field"><label>Hider's answer</label>${seg('ans', [['closer', 'Closer', 'y'], ['further', 'Further', 'n']], q.answer)}</div>`;
+  } else if (q.type === 'match') {
+    body += locField('Seeker location', 'p');
+    body += `<div class="field"><label>Is your nearest … the same as mine?</label>${catSelect(MATCH_CATS, q.cat)}</div>`;
+    body += `<div class="field" id="edTarget"></div>`;
+    body += `<div class="field"><label>Hider's answer</label>${seg('ans', [['yes', 'Yes — same', 'y'], ['no', 'No — different', 'n']], q.answer)}</div>`;
+  }
+  $('#editor').innerHTML = `<div class="edhead" style="--c:${T.hex}"><div class="kind">${T.n}${ED.orig ? ' · editing' : ''}</div><div class="ask">${esc(T.ask)}</div></div>
+    <div class="edbody">${body}<div class="info" id="edInfo"></div><div id="edPreview"></div></div>
+    <div class="edfoot">${ED.orig ? '<button class="btn danger" data-act="ed-del">Delete</button>' : ''}<button class="btn" data-act="ed-cancel">Cancel</button><span class="sp"></span><button class="btn pri" data-act="ed-save" id="edSave">${ED.orig ? 'Save changes' : 'Add question'}</button></div>`;
+  refreshEditorInfo();
+}
+function targetPicker() {
+  const q = ED.q, box = $('#edTarget'); if (!box || !q.p) { if (box) box.innerHTML = ''; return; }
+  const s = toXY(q.p[0], q.p[1]), C = CATS[q.cat];
+  if (q.cat === 'line') {
+    const near = nearestStation(s), cur = q.line || near.lines[0];
+    box.innerHTML = `<label>Seeker's line <span class="muted" style="font-weight:400">(nearest station: ${esc(near.name)})</span></label><div class="chips">${LINE_ORDER.map(l => `<button class="chip ${cur === l ? 'on' : ''}" data-act="edline" data-val="${l}" style="${cur === l ? `background:${LINES[l].c};border-color:${LINES[l].c}` : `border-color:${LINES[l].c}`}">${LINES[l].n}</button>`).join('')}</div>`;
+    return;
+  }
+  if (q.cat === 'namelen') {
+    const st = q.station ? ST_BY[q.station] : nearestStation(s);
+    const N = q.len != null && q.len !== '' ? q.len : nameLen(st.name);
+    box.innerHTML = `<label>Seeker's station</label><select data-act="edstation" style="width:100%">${STATIONS.slice().sort((a, b) => a.name.localeCompare(b.name)).map(x => `<option value="${x.code}" ${x.code === st.code ? 'selected' : ''}>${esc(x.name)} (${nameLen(x.name)})</option>`).join('')}</select>
+      <div class="row"><span class="muted small">Length used:</span><input type="number" id="edLen" min="1" value="${N}" style="width:80px"><span class="muted small">Rule set in the Game tab</span></div>`;
+    return;
+  }
+  if (q.cat === 'state') {
+    const cur = q.state || stateOf(s);
+    box.innerHTML = `<label>Seeker is in</label><select data-act="edstate" style="width:100%">${['DC', 'MD', 'VA'].map(k => `<option value="${k}" ${cur === k ? 'selected' : ''}>${STATE_NAMES[k]}${!q.state && cur === k ? ' (detected)' : ''}</option>`).join('')}</select>`;
+    return;
+  }
+  if (q.cat === 'custom') return;
+  const d = q.cat === 'landmass' ? DS.landmass : DS[q.cat];
+  if (!d || d.status !== 'ready') { box.innerHTML = ''; return; }
+  if (q.cat === 'landmass') {
+    const cur = q.land || landmassOf(s, d), list = kNearest(d.feats, s, 8, f => f.id, 40000);
+    box.innerHTML = `<label>Seeker is on</label><select data-act="edland" style="width:100%"><option value="mainland" ${cur === 'mainland' ? 'selected' : ''}>The mainland</option>${list.map(n => `<option value="${d.feats[n.i].id}" ${cur === d.feats[n.i].id ? 'selected' : ''}>${esc(n.name || 'Unnamed island')} (${fmtDist(n.d)})</option>`).join('')}</select>`;
+    return;
+  }
+  const kf = q.type === 'match' ? keyFn(q.cat) : (f => f.id);
+  const near = kNearest(d.feats, s, 7, kf);
+  const cq = ED.cq, curKey = q.target || (cq && cq.ok ? (q.type === 'match' ? cq.info.targetKey : cq.info.nearest && cq.info.nearest.id) : near[0] && near[0].key);
+  box.innerHTML = `<label>Seeker's nearest ${esc(C.label.toLowerCase())} <span class="muted" style="font-weight:400">— change it if the map data is wrong</span></label>
+    <select data-act="target" style="width:100%">${near.map((n, i) => `<option value="${esc(n.key)}" ${n.key === curKey ? 'selected' : ''}>${esc(n.name || '(unnamed)')} · ${fmtDist(n.d)}${i === 0 ? ' (nearest)' : ''}</option>`).join('')}</select>`;
+}
+let prevT = 0;
+function refreshEditorInfo() {
+  if (!ED) return;
+  const cq = CQS.find(c => c.q === ED.q) || compileQ(ED.q); ED.cq = cq;
+  const info = $('#edInfo');
+  if (info) {
+    info.className = 'info' + (cq.info.warn || (!cq.ok && !cq.pending) ? ' warn' : '');
+    info.innerHTML = cq.pending ? `<span class="spin"></span>${esc(cq.msg)}` : cq.ok ? esc(cq.info.text || '') : esc(cq.msg || '');
+  }
+  const tgt = $('#edTarget'); if (tgt && !tgt.contains(document.activeElement)) targetPicker();
+  clearTimeout(prevT); prevT = setTimeout(renderPreview, 120);
+  const sv = $('#edSave'); if (sv) sv.disabled = !(cq.ok || cq.pending);
+}
+const ALT = { yes: 'no', no: 'yes', hotter: 'colder', colder: 'hotter', closer: 'further', further: 'closer' };
+function renderPreview() {
+  const box = $('#edPreview'); if (!box || !ED) return;
+  const cq = ED.cq; if (!cq || !cq.ok) { box.innerHTML = ''; return; }
+  const others = CQS.filter(c => c.q !== ED.q);
+  const altQ = Object.assign({}, ED.q, { answer: ALT[ED.q.answer] });
+  const altCQ = compileQ(altQ);
+  const a = STATS, b = altCQ.ok ? computeStats(others.concat([altCQ]), baseOk) : null;
+  const lab = v => ({ yes: ED.q.type === 'radar' ? 'Within' : 'Same', no: ED.q.type === 'radar' ? 'Not within' : 'Different', hotter: 'Hotter', colder: 'Colder', closer: 'Closer', further: 'Further' }[v]);
+  const fmt = s => `<b>${s.zones} zones</b><span>${s.areaMi2.toFixed(2)} mi² left</span>`;
+  box.innerHTML = `<div class="small muted" style="margin-bottom:6px">What each answer would leave (now: ${BASE_STATS.zones} zones):</div>
+    <div class="preview"><div style="border-color:var(--ink)"><span>If “${lab(ED.q.answer)}” (shown)</span>${fmt(a)}</div>${b ? `<div><span>If “${lab(altQ.answer)}”</span>${fmt(b)}</div>` : ''}</div>`;
+}
+function syncDraftMarkers() {
+  if (!ED) return clearDraftMarkers();
+  const fields = ED.q.type === 'thermo' ? ['a', 'b'] : ['p', 't'];
+  for (const f of ['p', 'a', 'b', 't']) {
+    const v = fields.includes(f) ? ED.q[f] : null, m = draftMarkers[f];
+    if (!v) { if (m) { m.remove(); delete draftMarkers[f]; } continue; }
+    if (m) { m.setLatLng(v); continue; }
+    const col = QT[ED.q.type].hex;
+    const mk = L.marker(v, { draggable: true, autoPan: true, icon: L.divIcon({ className: 'hs-pin', html: `<div style="--c:${col}"></div><span>${f === 'a' ? 'A' : f === 'b' ? 'B' : f === 't' ? '★' : ''}</span>`, iconSize: [26, 26], iconAnchor: [13, 31] }) }).addTo(map);
+    let dragT = 0; mk.on('drag', () => { const ll = mk.getLatLng(); ED.q[f] = [ll.lat, ll.lng]; if (performance.now() - dragT > 120) { dragT = performance.now(); recompute(); } });
+    mk.on('dragend', () => { const ll = mk.getLatLng(); setField(f, [ll.lat, ll.lng]); });
+    draftMarkers[f] = mk;
+  }
+}
+function clearDraftMarkers() { Object.values(draftMarkers).forEach(m => m.remove()); draftMarkers = {}; }
+function setField(f, ll) {
+  if (!ED) return; ED.q[f] = ll; if (f === 'p') ED.prefilled = false;
+  if (f === 'p' || f === 'b') lastSeeker = { ll, t: Date.now() };
+  if (f === 'p') { delete ED.q.target; delete ED.q.state; delete ED.q.land; delete ED.q.station; delete ED.q.len; if (ED.q.cat === 'line') delete ED.q.line; }
+  renderEditor(); syncDraftMarkers(); recompute();
+  if (ED.q.type === 'thermo' && f === 'a' && !ED.q.b) setTimeout(() => pickField('b'), 50);
+}
+function pickField(f) {
+  const msg = { p: ' where the seeker is.', a: ' where the seeker started (A).', b: ' where the seeker is now (B).', t: ' on the landmark.' }[f];
+  startPick(msg, ll => setField(f, ll));
+}
+function saveEditor() {
+  const q = ED.q; if (!q.id) q.id = uid(); q.enabled = true; q.t0 = q.t0 || Date.now();
+  if (ED.orig) { const i = S.questions.findIndex(x => x.id === ED.orig); if (i >= 0) S.questions[i] = q; else S.questions.push(q); }
+  else S.questions.push(q);
+  save(); closeEditor(); toast('Question saved.');
+}
+
+/* ------------------------------ EVENTS ------------------------------ */
+function setTab(t) {
+  $$('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
+  $$('#tabbody section').forEach(s => { s.hidden = s.dataset.pane !== t; });
+  if (t === 'z') renderZones(); if (t === 'l') renderLayers(); if (t === 'd') renderDraw(); if (t === 'g') renderGame();
+  if (isMobile() && $('#panel').classList.contains('min')) setSheet('mid');
+}
+function setSheet(s) { const p = $('#panel'); p.classList.toggle('min', s === 'min'); p.classList.toggle('max', s === 'max'); $('#sheetBtn').textContent = s === 'max' ? '▾' : '▴'; }
+function cycleSheet() { const p = $('#panel'); setSheet(p.classList.contains('min') ? 'mid' : p.classList.contains('max') ? 'min' : 'max'); }
+function qById(id) { return S.questions.find(q => q.id === id); }
+function onAct(el, ev) {
+  const a = el.dataset.act, id = el.dataset.id, code = el.dataset.code;
+  switch (a) {
+    case 'tab': return setTab(el.dataset.tab);
+    case 'sheet': return cycleSheet();
+    case 'add': return openEditor(NEW_Q[el.dataset.type]());
+    case 'edit': { const q = qById(id); if (q) openEditor(JSON.parse(JSON.stringify(q)), id); return; }
+    case 'flip': { const q = qById(id); if (q) { q.answer = ALT[q.answer]; save(); recompute(); } return; }
+    case 'toggle': { const q = qById(id); if (q) { q.enabled = q.enabled === false; save(); recompute(); } return; }
+    case 'focus': { const q = qById(id); const p = q && (q.p || q.b); if (p) map.setView(p, Math.max(map.getZoom(), 13)); if (isMobile()) setSheet('min'); return; }
+    case 'del': return confirmBox('Delete this question?', 'It will be removed and the map will update.', 'Delete', () => { S.questions = S.questions.filter(q => q.id !== id); save(); recompute(); });
+    case 'ed-cancel': return closeEditor();
+    case 'ed-save': return saveEditor();
+    case 'ed-del': { const oid = ED.orig; return confirmBox('Delete this question?', '', 'Delete', () => { S.questions = S.questions.filter(q => q.id !== oid); save(); closeEditor(); }); }
+    case 'pick': return pickField(el.dataset.field);
+    case 'gps': return gps(ll => setField(el.dataset.field, ll));
+    case 'pick-gps': { const cb = PICK && PICK.cb; endPick(); if (cb) gps(cb); return; }
+    case 'pick-cancel': return endPick();
+    case 'dist': { if (el.dataset.val === 'custom') { ED.q.customDist = true; } else { ED.q.distMi = +el.dataset.val; delete ED.q.customDist; } renderEditor(); recompute(); return; }
+    case 'ans': ED.q.answer = el.dataset.val; renderEditor(); recompute(); return;
+    case 'edline': ED.q.line = el.dataset.val; renderEditor(); recompute(); return;
+    case 'st-toggle': { const st = ST_BY[code], cur = STATS ? STATS.allowed[st.i] : 1; if (cur) S.stationOverride[code] = 'out'; else { if (S.stationOverride[code] === 'out') delete S.stationOverride[code]; if (!baseOk(st)) S.stationOverride[code] = 'in'; } save(); recompute(); map.closePopup(); return; }
+    case 'st-seeker': { const st = ST_BY[code]; map.closePopup(); const f = ED.q.type === 'thermo' ? (ED.q.a ? 'b' : 'a') : 'p'; setField(f, st.ll.slice()); return; }
+    case 'st-zoom': map.setView(ST_BY[code].ll, 16); map.closePopup(); return;
+    case 'st-fly': { const st = ST_BY[code]; map.setView(st.ll, Math.max(15, map.getZoom())); if (isMobile()) setSheet('min'); setTimeout(() => openStationPopup(st), 300); return; }
+    case 'st-reset': S.stationOverride = {}; save(); recompute(); return;
+    case 'rline': { const l = el.dataset.l; if (S.ruledLines[l]) delete S.ruledLines[l]; else S.ruledLines[l] = true; save(); recompute(); return; }
+    case 'retry': requestLoad(el.dataset.cat, true); return;
+    case 'draw': return startDraw(el.dataset.kind);
+    case 'draw-mode': DRAW.mode = el.dataset.val; renderDrawBar(); return;
+    case 'draw-undo': DRAW.pts.pop(); renderDrawBar(); requestRedraw(); return;
+    case 'draw-done': return finishDraw();
+    case 'draw-cancel': return cancelDraw();
+    case 'cflip': { const c = S.customs.find(x => x.id === id); c.mode = c.mode === 'keep' ? 'remove' : 'keep'; save(); recompute(); renderDraw(); return; }
+    case 'ctoggle': { const c = S.customs.find(x => x.id === id); c.enabled = c.enabled === false; save(); recompute(); renderDraw(); return; }
+    case 'cdel': S.customs = S.customs.filter(x => x.id !== id); save(); recompute(); renderDraw(); return;
+    case 'fit': return fitRemaining();
+    case 'locate': return locateMe();
+    case 'share': return shareLink();
+    case 'export': return exportBox();
+    case 'import': return importBox();
+    case 'reset': return confirmBox('Start a new game?', 'This clears all questions, custom shapes and line/station rule-outs on this device. Settings and cached map data stay.', 'Clear everything', () => { S.questions = []; S.customs = []; S.ruledLines = {}; S.stationOverride = {}; save(); recompute(); renderDraw(); toast('New game started.'); });
+    case 'gkey': S.settings.googleKey = $('#gkey').value.trim(); save(); toast('Google key saved. Choose “Google Maps” in Layers.'); return;
+    case 'clearcache': IDB.clear(); toast('Cached data cleared — it will reload as needed.'); return;
+    case 'modal-close': return closeModal();
+  }
+}
+function onChange(el) {
+  const a = el.dataset.act;
+  switch (a) {
+    case 'stloc': if (el.value) setField(el.dataset.field, ST_BY[el.value].ll.slice()); return;
+    case 'cat': ED.q.cat = el.value; delete ED.q.target; delete ED.q.line; delete ED.q.state; delete ED.q.land; delete ED.q.station; delete ED.q.len; renderEditor(); recompute(); return;
+    case 'target': ED.q.target = el.value; recompute(); return;
+    case 'edstation': ED.q.station = el.value; delete ED.q.len; renderEditor(); recompute(); return;
+    case 'edstate': ED.q.state = el.value; recompute(); return;
+    case 'edland': ED.q.land = el.value; recompute(); return;
+    case 'lmode': S.lineMode = el.value; save(); recompute(); return;
+    case 'stshow': zoneFilter.show = el.value; renderZones(); return;
+    case 'basemap': setBasemap(el.value); return;
+    case 'ov': S.layers[el.dataset.k] = el.checked; save(); requestRedraw(); return;
+    case 'catl': { const cat = el.dataset.cat; S.layers.cats[cat] = el.checked; if (el.checked) { requestLoad(cat); if (cat === 'street') { if (map.getZoom() < 15) toast('Zoom in further to see named streets and paths.'); loadViewStreets(); } } save(); renderLayers(); requestRedraw(); return; }
+    case 'set': { const k = el.dataset.k; S.settings[k] = k === 'radiusMi' ? +el.value : el.value; save(); if (k === 'radiusMi') { computeNeighbors(); GRID.cache.clear(); } recompute(); renderGame(); return; }
+    case 'setb': S.settings[el.dataset.k] = el.checked; save(); GRID.cache.clear(); recompute(); return;
+    case 'shade': S.settings.shade = +el.value; save(); requestRedraw(); return;
+  }
+}
+function onInput(el) {
+  if (el.id === 'edDist') { ED.q.distMi = +el.value; ED.q.customDist = true; recompute(); }
+  else if (el.id === 'edLen') { ED.q.len = el.value === '' ? '' : +el.value; recompute(); }
+  else if (el.id === 'edTName') { ED.q.tName = el.value; }
+  else if (el.id === 'stsearch') { zoneFilter.q = el.value; renderZones(); }
+  else if (el.dataset.act === 'shade') { S.settings.shade = +el.value; requestRedraw(); }
+}
+function fitRemaining() {
+  if (!STATS) return; const R = zoneR(); let b = null;
+  for (const st of STATIONS) if (STATS.allowed[st.i] && STATS.pct[st.i] > 0) { const dl = R / MLAT, dn = R / MLON; const bb = [[st.lat - dl, st.lng - dn], [st.lat + dl, st.lng + dn]]; b = b ? [[Math.min(b[0][0], bb[0][0]), Math.min(b[0][1], bb[0][1])], [Math.max(b[1][0], bb[1][0]), Math.max(b[1][1], bb[1][1])]] : bb; }
+  if (!b) return toast('No zones remain — check your answers.');
+  const mob = isMobile(), h = $('#panel').offsetHeight;
+  map.fitBounds(b, { paddingTopLeft: [30, 60], paddingBottomRight: [30, mob ? h + 20 : 30], maxZoom: 16 });
+}
+
+/* ------------------------------ SHARE / MODALS ------------------------------ */
+function gameJSON() { return JSON.stringify({ v: 1, questions: S.questions, customs: S.customs, ruledLines: S.ruledLines, lineMode: S.lineMode, stationOverride: S.stationOverride, settings: { radiusMi: S.settings.radiusMi, nameRule: S.settings.nameRule, nameSource: S.settings.nameSource, quadrants: S.settings.quadrants } }); }
+const b64e = s => btoa(unescape(encodeURIComponent(s))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const b64d = s => decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/'))));
+function applyGame(j) {
+  if (!j || j.v !== 1) throw new Error('Not a Hide + Seek DC game');
+  S.questions = j.questions || []; S.customs = j.customs || []; S.ruledLines = j.ruledLines || {}; S.lineMode = j.lineMode || 'all'; S.stationOverride = j.stationOverride || {};
+  Object.assign(S.settings, j.settings || {}); computeNeighbors(); GRID.cache.clear(); save(); recompute(); renderDraw(); renderGame();
+}
+async function copyText(t) { try { await navigator.clipboard.writeText(t); return true; } catch (e) { const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); let ok = false; try { ok = document.execCommand('copy'); } catch (e2) { } ta.remove(); return ok; } }
+async function shareLink() {
+  const url = location.href.split('#')[0] + '#g=' + b64e(gameJSON());
+  if (await copyText(url)) toast('Share link copied. Teammates who open it can load this game.');
+  else modal('Share link', `<textarea readonly>${esc(url)}</textarea>`, [['Close', null]]);
+}
+function exportBox() { modal('Export game', `<p class="small muted">Copy this text to back up or move the game.</p><textarea readonly id="exp">${esc(gameJSON())}</textarea>`, [['Copy', () => copyText($('#exp').value).then(ok => toast(ok ? 'Copied.' : 'Select the text and copy it.'))], ['Close', null]]); }
+function importBox() { modal('Import game', '<p class="small muted">Paste an exported game. This replaces the current questions and shapes.</p><textarea id="imp"></textarea>', [['Import', () => { try { applyGame(JSON.parse($('#imp').value)); toast('Game imported.'); } catch (e) { toast('Import failed: ' + e.message); } }, true], ['Cancel', null]]); }
+function checkHash() {
+  const m = location.hash.match(/^#g=(.+)$/); if (!m) return;
+  let j; try { j = JSON.parse(b64d(m[1])); } catch (e) { return toast('That share link looks broken.'); }
+  modal('Load shared game?', `This link has <b>${(j.questions || []).length} question(s)</b> and <b>${(j.customs || []).length} shape(s)</b>. Loading it replaces what's on this device.`, [['Load game', () => { applyGame(j); history.replaceState(null, '', location.pathname + location.search); toast('Shared game loaded.'); }, true], ['Not now', () => history.replaceState(null, '', location.pathname + location.search)]]);
+}
+function modal(title, html, actions) {
+  const m = $('#modal'); m.hidden = false;
+  m.innerHTML = `<div class="box" role="dialog" aria-modal="true"><h2>${esc(title)}</h2><div>${html}</div><div class="btnrow">${actions.map(([l, , pri], i) => `<button class="btn ${pri ? 'pri' : ''}" data-mi="${i}">${esc(l)}</button>`).join('')}</div></div>`;
+  $$('[data-mi]', m).forEach(b => b.onclick = () => { const fn = actions[+b.dataset.mi][1]; closeModal(); if (fn) fn(); });
+}
+function closeModal() { $('#modal').hidden = true; $('#modal').innerHTML = ''; }
+function confirmBox(title, text, okLabel, fn) { modal(title, `<p>${esc(text)}</p>`, [['Cancel', null], [okLabel, fn, true]]); }
+let toastT = 0;
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 3800); }
+
+/* ------------------------------ BOOT ------------------------------ */
+function start() {
+  map = L.map('map', { zoomControl: false, minZoom: 8, maxZoom: 19, zoomSnap: 0.25, zoomDelta: 0.5, wheelPxPerZoomLevel: 100, preferCanvas: true, maxBounds: [[37.9, -78.6], [39.9, -75.9]] });
+  map.attributionControl.setPrefix('<a href="https://leafletjs.com" target="_blank" rel="noopener">Leaflet</a>');
+  L.control.zoom({ position: 'topright' }).addTo(map);
+  map.fitBounds([[38.766, -77.491], [39.12, -76.844]], { padding: [16, 16] });
+  if (isMobile()) map.setView([38.9, -77.06], 10.5);
+  setBasemap(S.settings.basemap);
+  initOverlay();
+  map.on('click', onMapClick); map.on('mousemove', onMouseMove); map.on('mouseout', () => { $('#tip').style.display = 'none'; });
+  document.addEventListener('click', e => { const el = e.target.closest('[data-act]'); if (!el || el.tagName === 'SELECT' || (el.tagName === 'INPUT' && el.type !== 'button')) return; onAct(el, e); });
+  document.addEventListener('change', e => { const el = e.target.closest('[data-act]'); if (el && (el.tagName === 'SELECT' || el.tagName === 'INPUT')) onChange(el); });
+  document.addEventListener('input', e => onInput(e.target));
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { if (PICK) endPick(); else if (DRAW) cancelDraw(); else if (!$('#modal').hidden) closeModal(); } });
+  for (const [cat, on] of Object.entries(S.layers.cats)) if (on) requestLoad(cat);
+  restoreStreets().then(recompute);
+  renderLayers(); renderDraw(); renderGame();
+  doRecompute();
+  checkHash();
+}
+window.__loadLeaflet(start);
+</script>
+</body>
+</html>

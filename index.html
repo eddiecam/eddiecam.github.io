@@ -248,7 +248,7 @@ window.__loadLeaflet = function (cb, i) {
       <button data-act="fit" title="Zoom to remaining zones" aria-label="Zoom to remaining zones">⤢</button>
       <button data-act="locate" title="Show my location" aria-label="Show my location">◎</button>
     </div>
-    <div class="legend"><span><i style="background:rgba(21,26,48,.6)"></i>Ruled out</span><span><i style="background:rgba(21,26,48,.25)"></i>Outside every zone</span><span><i style="background:#fff;border:2px solid #151a30"></i>Still possible</span></div>
+    <div class="legend"><span><i style="background:rgba(21,26,48,.6)"></i>Ruled out</span><span><i style="background:rgba(21,26,48,.25)"></i>Not ruled out, outside zones</span><span><i style="background:#fff;border:2px solid #151a30"></i>Still possible</span></div>
     <div id="tip"></div>
   </main>
 </div>
@@ -987,7 +987,7 @@ const RADAR_D = [0.25, 0.5, 1, 3, 5, 10], THERMO_D = [0.5, 3];
 const DEFAULT_STATE = () => ({
   v: 1, questions: [], ruledLines: {}, lineMode: 'all', stationOverride: {}, customs: [],
   settings: { radiusMi: 0.25, nameRule: 'alnum', nameSource: 'full', quadrants: false, basemap: 'voyager', googleKey: '', shade: 0.6 },
-  layers: { lines: true, zones: true, labels: true, borders: false, voronoi: false, cats: {} }
+  layers: { lines: true, zones: true, labels: true, borders: false, voronoi: false, shadeAll: true, cats: {} }
 });
 function mergeState(base, j) {
   const s = Object.assign(base, j || {});
@@ -1215,7 +1215,7 @@ function mkCanvas() { return document.createElement('canvas'); }
 function initOverlay() {
   map.createPane('hsPane'); const pane = map.getPane('hsPane'); pane.style.zIndex = 450; pane.style.pointerEvents = 'none';
   OV.cv = mkCanvas(); OV.cv.className = 'hs-canvas leaflet-zoom-hide'; pane.appendChild(OV.cv); OV.ctx = OV.cv.getContext('2d');
-  OV.M = mkCanvas(); OV.m = OV.M.getContext('2d'); OV.T = mkCanvas(); OV.t = OV.T.getContext('2d');
+  OV.M = mkCanvas(); OV.m = OV.M.getContext('2d'); OV.T = mkCanvas(); OV.t = OV.T.getContext('2d'); OV.P = mkCanvas(); OV.p = OV.P.getContext('2d');
   const hp = mkCanvas(); hp.width = hp.height = 10; const hc = hp.getContext('2d'); hc.strokeStyle = 'rgba(255,255,255,.16)'; hc.lineWidth = 1.5;
   hc.beginPath(); hc.moveTo(0, 10); hc.lineTo(10, 0); hc.moveTo(-5, 5); hc.lineTo(5, -5); hc.moveTo(5, 15); hc.lineTo(15, 5); hc.stroke(); OV.hatchSrc = hp;
   map.on('moveend zoomend resize viewreset', () => { requestRedraw(); loadViewStreets(); });
@@ -1285,22 +1285,32 @@ function redraw() {
   const V = makeV(); OV.V = V; OV.hits = [];
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   sizeCanvas(OV.cv, V.W, V.H, dpr); OV.cv.style.width = V.W + 'px'; OV.cv.style.height = V.H + 'px';
-  sizeCanvas(OV.M, V.W, V.H, 1); sizeCanvas(OV.T, V.W, V.H, 1);
+  sizeCanvas(OV.M, V.W, V.H, 1); sizeCanvas(OV.T, V.W, V.H, 1); sizeCanvas(OV.P, V.W, V.H, 1);
   const tl = map.containerPointToLayerPoint([-V.px, -V.py]); OV.cv.style.transform = `translate3d(${tl.x}px,${tl.y}px,0)`;
   const m = OV.m, t = OV.t, c = OV.ctx, allowed = st => !STATS || STATS.allowed[st.i];
-  // 1. mask of the possible area
+  // 1. answer mask G (OV.M): the whole map, cut down by every geometric answer.
+  //    Grid-based answers (streets/parks/golf/wards) only exist inside zones.
   m.setTransform(1, 0, 0, 1, 0, 0); m.globalCompositeOperation = 'source-over'; m.clearRect(0, 0, V.W, V.H);
-  m.fillStyle = '#fff'; zonesPath(m, V, allowed); m.fill();
+  m.fillStyle = '#fff'; m.fillRect(0, 0, V.W, V.H);
   for (const cq of CQS) if (cq.ok && (cq.paint || cq.grid)) applyCQ(cq, V);
+  //    possible area P (OV.P) = G ∩ allowed hiding zones
+  const p = OV.p; p.setTransform(1, 0, 0, 1, 0, 0); p.globalCompositeOperation = 'source-over'; p.clearRect(0, 0, V.W, V.H);
+  p.fillStyle = '#fff'; zonesPath(p, V, allowed); p.fill();
+  p.globalCompositeOperation = 'destination-in'; p.drawImage(OV.M, 0, 0); p.globalCompositeOperation = 'source-over';
   // 2. compose shading
   c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, V.W, V.H);
-  const k = S.settings.shade;
+  const k = S.settings.shade, wide = S.layers.shadeAll !== false;
+  //    light tint: not ruled out by any answer, but outside every hiding zone
   t.setTransform(1, 0, 0, 1, 0, 0); t.globalCompositeOperation = 'source-over'; t.clearRect(0, 0, V.W, V.H);
   t.fillStyle = `rgba(21,26,48,${(k * 0.42).toFixed(3)})`; t.fillRect(0, 0, V.W, V.H);
+  if (wide) { t.globalCompositeOperation = 'destination-in'; t.drawImage(OV.M, 0, 0); }
   t.globalCompositeOperation = 'destination-out'; zonesPath(t, V); t.fill();
   c.drawImage(OV.T, 0, 0, V.W, V.H);
-  t.globalCompositeOperation = 'source-over'; t.clearRect(0, 0, V.W, V.H); t.fillStyle = '#000'; zonesPath(t, V); t.fill();
-  t.globalCompositeOperation = 'destination-out'; t.drawImage(OV.M, 0, 0);
+  //    dark hatched shade: ruled out (everywhere when "wide", else only inside zones)
+  t.globalCompositeOperation = 'source-over'; t.clearRect(0, 0, V.W, V.H); t.fillStyle = '#000';
+  if (wide) { t.fillRect(0, 0, V.W, V.H); t.globalCompositeOperation = 'destination-out'; t.drawImage(OV.M, 0, 0); t.globalCompositeOperation = 'source-over'; t.fillStyle = '#000'; }
+  zonesPath(t, V); t.fill();
+  t.globalCompositeOperation = 'destination-out'; t.drawImage(OV.P, 0, 0);
   t.globalCompositeOperation = 'source-in'; t.fillStyle = `rgba(21,26,48,${k.toFixed(3)})`; t.fillRect(0, 0, V.W, V.H);
   if (!OV.hatch) OV.hatch = t.createPattern(OV.hatchSrc, 'repeat');
   t.globalCompositeOperation = 'source-atop'; t.fillStyle = OV.hatch; t.fillRect(0, 0, V.W, V.H);
@@ -1638,7 +1648,7 @@ function dsStatus(cat) {
 function renderLayers() {
   const pane = $('#paneL'); if (!pane) return;
   const bm = Object.entries(BASEMAPS).map(([k, b]) => `<label><input type="radio" name="bm" data-act="basemap" value="${k}" ${S.settings.basemap === k ? 'checked' : ''}> ${esc(b.n)}</label>`).join('');
-  const ov = [['zones', 'Hiding-zone circles (¼ mi)', '#151a30'], ['lines', 'Metro lines', '#BF0D3E'], ['labels', 'Station names', '#4a5170'], ['borders', 'DC / MD / VA borders', '#6741d9']]
+  const ov = [['shadeAll', 'Shade ruled-out areas across the whole map', '#3b4060'], ['zones', 'Hiding-zone circles (¼ mi)', '#151a30'], ['lines', 'Metro lines', '#BF0D3E'], ['labels', 'Station names', '#4a5170'], ['borders', 'DC / MD / VA borders', '#6741d9']]
     .map(([k, n, c]) => `<div class="lrow"><label><span class="sw" style="background:${c}"></span>${n}</label><input type="checkbox" class="toggle" data-act="ov" data-k="${k}" ${S.layers[k] ? 'checked' : ''}></div>`).join('');
   const cats = MATCH_CATS.map(cat => { const C = CATS[cat]; return `<div class="lrow"><label><span class="sw" style="background:${C.color || '#151a30'}">${C.icon.length < 3 ? C.icon : ''}</span>${esc(C.label)}</label><span class="st">${dsStatus(cat)}</span><input type="checkbox" class="toggle" data-act="catl" data-cat="${cat}" ${S.layers.cats[cat] ? 'checked' : ''}></div>`; }).join('');
   pane.innerHTML = `<h3>Base map</h3><div class="radios">${bm}</div>

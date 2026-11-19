@@ -986,7 +986,7 @@ const RADAR_D = [0.25, 0.5, 1, 3, 5, 10], THERMO_D = [0.5, 3];
 /* ------------------------------ STATE ------------------------------ */
 const DEFAULT_STATE = () => ({
   v: 1, questions: [], ruledLines: {}, lineMode: 'all', stationOverride: {}, customs: [],
-  settings: { radiusMi: 0.25, nameRule: 'alnum', nameSource: 'full', quadrants: false, basemap: 'voyager', googleKey: '', shade: 0.6 },
+  settings: { radiusMi: 0.25, nameRule: 'alnum', nameSource: 'full', quadrants: false, shade: 0.6 },
   layers: { lines: true, zones: true, labels: true, borders: false, voronoi: false, shadeAll: true, cats: {} }
 });
 function mergeState(base, j) {
@@ -1184,28 +1184,10 @@ function doRecompute() {
 }
 
 /* ------------------------------ MAP ------------------------------ */
-let map, baseLayer = null;
-const BASEMAPS = {
-  voyager: { n: 'Streets & neighborhoods (CARTO Voyager)', url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', o: { subdomains: 'abcd', maxZoom: 20, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>' } },
-  osm: { n: 'OpenStreetMap standard (more detail)', url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', o: { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' } },
-  light: { n: 'Light & quiet (CARTO Positron)', url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', o: { subdomains: 'abcd', maxZoom: 20, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>' } },
-  google: { n: 'Google Maps (needs your API key)' }
-};
-async function setBasemap(name) {
-  if (name === 'google' && !S.settings.googleKey) { toast('Add a Google Maps API key in the Game tab first.'); name = 'voyager'; }
-  let layer;
-  if (name === 'google') {
-    try {
-      const key = S.settings.googleKey;
-      const r = await fetch('https://tile.googleapis.com/v1/createSession?key=' + encodeURIComponent(key), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mapType: 'roadmap', language: 'en-US', region: 'US' }) });
-      const j = await r.json(); if (!j.session) throw new Error((j.error && j.error.message) || 'no session');
-      layer = L.tileLayer('https://tile.googleapis.com/v1/2dtiles/{z}/{x}/{y}?session=' + j.session + '&key=' + encodeURIComponent(key), { maxZoom: 21, attribution: 'Map data &copy;' + new Date().getFullYear() + ' Google' });
-    } catch (e) { toast('Google Maps failed: ' + e.message + '. Using the default map.'); name = 'voyager'; }
-  }
-  if (!layer) { const b = BASEMAPS[name] || BASEMAPS.voyager; layer = L.tileLayer(b.url, b.o); }
-  if (baseLayer) baseLayer.remove();
-  baseLayer = layer.addTo(map);
-  S.settings.basemap = name; save(); renderLayers();
+let map;
+function addBasemap() {
+  // OpenStreetMap's standard tiles: free, no API key.
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors' }).addTo(map);
 }
 
 /* ------------------------------ OVERLAY RENDERING ------------------------------ */
@@ -1214,12 +1196,25 @@ const GRID = { cache: new Map(), pending: new Set(), queue: [], busy: false };
 function mkCanvas() { return document.createElement('canvas'); }
 function initOverlay() {
   map.createPane('hsPane'); const pane = map.getPane('hsPane'); pane.style.zIndex = 450; pane.style.pointerEvents = 'none';
-  OV.cv = mkCanvas(); OV.cv.className = 'hs-canvas leaflet-zoom-hide'; pane.appendChild(OV.cv); OV.ctx = OV.cv.getContext('2d');
+  OV.cv = mkCanvas(); OV.cv.className = 'hs-canvas leaflet-zoom-animated'; OV.cv.style.transformOrigin = '0 0'; pane.appendChild(OV.cv); OV.ctx = OV.cv.getContext('2d');
   OV.M = mkCanvas(); OV.m = OV.M.getContext('2d'); OV.T = mkCanvas(); OV.t = OV.T.getContext('2d'); OV.P = mkCanvas(); OV.p = OV.P.getContext('2d');
   const hp = mkCanvas(); hp.width = hp.height = 10; const hc = hp.getContext('2d'); hc.strokeStyle = 'rgba(255,255,255,.16)'; hc.lineWidth = 1.5;
   hc.beginPath(); hc.moveTo(0, 10); hc.lineTo(10, 0); hc.moveTo(-5, 5); hc.lineTo(5, -5); hc.moveTo(5, 15); hc.lineTo(15, 5); hc.stroke(); OV.hatchSrc = hp;
   map.on('moveend zoomend resize viewreset', () => { requestRedraw(); loadViewStreets(); });
   map.on('move', () => { if (performance.now() - OV.last > 90) requestRedraw(); });
+  // Keep the already-drawn overlay glued to the base map while it zooms: scale/translate the canvas
+  // exactly like Leaflet's own vector renderer, then redraw sharply once the zoom settles.
+  map.on('zoomanim', e => { OV.animating = true; overlayTransform(e.center, e.zoom); });
+  map.on('zoomend', () => { OV.animating = false; requestRedraw(); });
+  map.on('zoom', () => overlayTransform(map.getCenter(), map.getZoom()));
+}
+function overlayTransform(center, zoom) {
+  if (OV.z0 == null) return;
+  const scale = Math.pow(2, zoom - OV.z0), size = map.getSize();
+  const mp = map.containerPointToLayerPoint([0, 0]); // = -(map pane offset)
+  const cp = map.project(center, zoom);
+  const ox = Math.round(cp.x - size.x / 2 - mp.x), oy = Math.round(cp.y - size.y / 2 - mp.y); // pixel origin at the target view
+  OV.cv.style.transform = `translate3d(${OV.wx0 * scale - ox}px,${OV.wy0 * scale - oy}px,0) scale(${scale})`;
 }
 function requestRedraw() { if (OV.raf) return; OV.raf = requestAnimationFrame(() => { OV.raf = 0; try { redraw(); } catch (e) { console.error(e); } }); }
 function sizeCanvas(cv, W, H, dpr) { const w = Math.round(W * dpr), h = Math.round(H * dpr); if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; } }
@@ -1281,12 +1276,13 @@ function applyCQ(cq, V) {
   m.drawImage(OV.T, 0, 0); m.globalCompositeOperation = 'source-over';
 }
 function redraw() {
-  if (!map) return; OV.last = performance.now();
+  if (!map || OV.animating) return; // the zoom animation scales the last frame; zoomend redraws OV.last = performance.now();
   const V = makeV(); OV.V = V; OV.hits = [];
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   sizeCanvas(OV.cv, V.W, V.H, dpr); OV.cv.style.width = V.W + 'px'; OV.cv.style.height = V.H + 'px';
   sizeCanvas(OV.M, V.W, V.H, 1); sizeCanvas(OV.T, V.W, V.H, 1); sizeCanvas(OV.P, V.W, V.H, 1);
   const tl = map.containerPointToLayerPoint([-V.px, -V.py]); OV.cv.style.transform = `translate3d(${tl.x}px,${tl.y}px,0)`;
+  OV.z0 = V.z; OV.wx0 = V.ox; OV.wy0 = V.oy;
   const m = OV.m, t = OV.t, c = OV.ctx, allowed = st => !STATS || STATS.allowed[st.i];
   // 1. answer mask G (OV.M): the whole map, cut down by every geometric answer.
   //    Grid-based answers (streets/parks/golf/wards) only exist inside zones.
@@ -1647,12 +1643,10 @@ function dsStatus(cat) {
 }
 function renderLayers() {
   const pane = $('#paneL'); if (!pane) return;
-  const bm = Object.entries(BASEMAPS).map(([k, b]) => `<label><input type="radio" name="bm" data-act="basemap" value="${k}" ${S.settings.basemap === k ? 'checked' : ''}> ${esc(b.n)}</label>`).join('');
   const ov = [['shadeAll', 'Shade ruled-out areas across the whole map', '#3b4060'], ['zones', 'Hiding-zone circles (¼ mi)', '#151a30'], ['lines', 'Metro lines', '#BF0D3E'], ['labels', 'Station names', '#4a5170'], ['borders', 'DC / MD / VA borders', '#6741d9']]
     .map(([k, n, c]) => `<div class="lrow"><label><span class="sw" style="background:${c}"></span>${n}</label><input type="checkbox" class="toggle" data-act="ov" data-k="${k}" ${S.layers[k] ? 'checked' : ''}></div>`).join('');
   const cats = MATCH_CATS.map(cat => { const C = CATS[cat]; return `<div class="lrow"><label><span class="sw" style="background:${C.color || '#151a30'}">${C.icon.length < 3 ? C.icon : ''}</span>${esc(C.label)}</label><span class="st">${dsStatus(cat)}</span><input type="checkbox" class="toggle" data-act="catl" data-cat="${cat}" ${S.layers.cats[cat] ? 'checked' : ''}></div>`; }).join('');
-  pane.innerHTML = `<h3>Base map</h3><div class="radios">${bm}</div>
-    <h3>Overlays</h3>${ov}
+  pane.innerHTML = `<h3>Overlays</h3>${ov}
     <h3>Matching & measuring places</h3>${cats}
     <div class="lrow"><label><span class="sw" style="background:#8b91a8">⋰</span>Nearest-place boundaries for point layers</label><input type="checkbox" class="toggle" data-act="ov" data-k="voronoi" ${S.layers.voronoi ? 'checked' : ''}></div>
     <div class="lrow"><label><span class="sw" style="background:#1971c2">≈</span>Bodies of water (measuring)</label><span class="st">${dsStatus('water')}</span><input type="checkbox" class="toggle" data-act="catl" data-cat="water" ${S.layers.cats.water ? 'checked' : ''}></div>
@@ -1680,9 +1674,6 @@ function renderGame() {
     <p class="muted small">Everything saves on this device automatically. Send the link to teammates to load the same questions.</p>
     <div class="btnrow"><button class="btn" data-act="share">🔗 Copy share link</button><button class="btn" data-act="export">Export</button><button class="btn" data-act="import">Import</button></div>
     <h3>New game</h3><div class="btnrow"><button class="btn danger" data-act="reset">Clear questions, shapes & rule-outs</button></div>
-    <h3>Google Maps base map</h3>
-    <p class="muted small">Google requires an API key with the Map Tiles API enabled (billing on). Paste it here, then choose “Google Maps” in Layers. The key stays on this device.</p>
-    <div class="row"><input type="text" id="gkey" placeholder="AIza…" value="${esc(s.googleKey)}" style="flex:1"><button class="btn sm" data-act="gkey">Save</button></div>
     <h3>Data</h3><div class="btnrow"><button class="btn sm" data-act="clearcache">Clear cached map data</button></div>
     <h3>How it works</h3><ul class="help small">
       <li>Every Metro station has a hiding zone of the radius above. The hider is somewhere inside one of them.</li>
@@ -1900,7 +1891,6 @@ function onAct(el, ev) {
     case 'export': return exportBox();
     case 'import': return importBox();
     case 'reset': return confirmBox('Start a new game?', 'This clears all questions, custom shapes and line/station rule-outs on this device. Settings and cached map data stay.', 'Clear everything', () => { S.questions = []; S.customs = []; S.ruledLines = {}; S.stationOverride = {}; save(); recompute(); renderDraw(); toast('New game started.'); });
-    case 'gkey': S.settings.googleKey = $('#gkey').value.trim(); save(); toast('Google key saved. Choose “Google Maps” in Layers.'); return;
     case 'clearcache': IDB.clear(); toast('Cached data cleared — it will reload as needed.'); return;
     case 'modal-close': return closeModal();
   }
@@ -1916,7 +1906,6 @@ function onChange(el) {
     case 'edland': ED.q.land = el.value; recompute(); return;
     case 'lmode': S.lineMode = el.value; save(); recompute(); return;
     case 'stshow': zoneFilter.show = el.value; renderZones(); return;
-    case 'basemap': setBasemap(el.value); return;
     case 'ov': S.layers[el.dataset.k] = el.checked; save(); requestRedraw(); return;
     case 'catl': { const cat = el.dataset.cat; S.layers.cats[cat] = el.checked; if (el.checked) { requestLoad(cat); if (cat === 'street') { if (map.getZoom() < 15) toast('Zoom in further to see named streets and paths.'); loadViewStreets(); } } save(); renderLayers(); requestRedraw(); return; }
     case 'set': { const k = el.dataset.k; S.settings[k] = k === 'radiusMi' ? +el.value : el.value; save(); if (k === 'radiusMi') { computeNeighbors(); GRID.cache.clear(); } recompute(); renderGame(); return; }
@@ -1978,7 +1967,7 @@ function start() {
   L.control.zoom({ position: 'topright' }).addTo(map);
   map.fitBounds([[38.766, -77.491], [39.12, -76.844]], { padding: [16, 16] });
   if (isMobile()) map.setView([38.9, -77.06], 10.5);
-  setBasemap(S.settings.basemap);
+  addBasemap();
   initOverlay();
   map.on('click', onMapClick); map.on('mousemove', onMouseMove); map.on('mouseout', () => { $('#tip').style.display = 'none'; });
   document.addEventListener('click', e => { const el = e.target.closest('[data-act]'); if (!el || el.tagName === 'SELECT' || (el.tagName === 'INPUT' && el.type !== 'button')) return; onAct(el, e); });
